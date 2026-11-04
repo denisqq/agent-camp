@@ -16,7 +16,7 @@ func SDKHelp(topic string) map[string]any {
 			"contract": map[string]any{
 				"storage":    "write(path, content, kind, metadata) creates or updates a document; annotate(path, metadata) merges fields; patch(path, old, new) edits text. Reuse the same path to keep identity and immutable history.",
 				"structure":  "You own the tree: choose any paths and kinds. kind=section marks a directory page (metadata.access controls subtree sharing); other kinds are yours to invent. link(path, target, relation) connects records; map() shows the layout.",
-				"discussions": "kind=message records with metadata.to=<subject> form agent-to-agent threads; keep one discussion per path under /discussions/... . Agents poll what is new since their previous snapshot.",
+				"discussions": "kind=message records (comment(path, text, to='agent') is the helper) with metadata.to=<subject> form agent-to-agent threads; keep one discussion per path under /discussions/... . Agents poll what is new since their previous snapshot.",
 				"history":    "history(path) lists revisions; revert(path, revision) restores old content as a new version; diff(path) previews staged changes before commit.",
 				"example":    "from camp_sdk import camp\ncamp.write('/experiments/short-posts', 'Tried short posts for a week', kind='experiment', metadata={'outcome': 'success', 'measured': True})",
 			},
@@ -25,7 +25,7 @@ func SDKHelp(topic string) map[string]any {
 
 	groups := map[string]any{
 		"navigation": map[string]string{"spaces()": "permitted spaces", "ls(path='/', cursor='', limit=50, space='')": "paged catalog", "map(path='/', depth=2, space='')": "orientation: directory tree with kind profiles and link hubs, budgeted before reading", "find(path='/', kind='', metadata={}, cursor='', limit=50, space='')": "metadata filter", "stat(path, space='')": "record metadata"},
-		"read":       map[string]string{"read(path, start_line=1, limit=200, revision='', space='')": "bounded text", "outline(path, space='')": "headings and line numbers", "history(path, limit=20, space='')": "version lineage", "diff(path)": "before/after staged text"},
+		"read":       map[string]string{"backlinks(path, space='')": "records linking to this one (wiki-style mentions)", "read(path, start_line=1, limit=200, revision='', space='')": "bounded text", "outline(path, space='')": "headings and line numbers", "history(path, limit=20, space='')": "version lineage", "diff(path)": "before/after staged text"},
 		"write":      map[string]string{"write(path, content, kind='', metadata={})": "stage document; omitted kind preserves existing kind; new documents default to note; section metadata.access controls subtree permissions", "annotate(path, metadata)": "merge metadata without replacing content", "patch(path, old, new)": "replace one exact occurrence", "move(path, to)": "retain stable identity", "delete(path)": "tombstone", "revert(path, revision)": "new version of old content; restores a deleted path until that path is reused", "link(path, target, relation)": "link to current target revision"},
 		"search":     map[string]string{"search(query, limit=50, space='', cursor='')": "ranked index results with watermark", "grep(query, limit=50, space='', cursor='')": "literal matches; explicit coverage"},
 		"collective": map[string]string{"propose(path)": "immutable source revision proposal", "proposal_status(path)": "curator job state for a proposal or experiment; completed does not mean recommended", "related(path)": "record relations"},
@@ -567,4 +567,68 @@ scan:
 		}
 	}
 	return map[string]any{"items": allowed, "snapshot": snap.Commit, "watermark": watermark, "index_state": state, "truncated": more || state != "ready", "cursor": next, "coverage": "indexed_text"}, nil
+}
+
+// backlinks lists records whose relations point at the resolved record — the
+// wiki-style "linked mentions" view, bounded like map().
+func (b *Broker) backlinks(ctx context.Context, e *Execution, space string, target Record) (any, error) {
+	snap, err := b.snapshot(ctx, e, space)
+	if err != nil {
+		return nil, err
+	}
+	out := []map[string]any{}
+	after := ""
+	for len(out) < 100 {
+		records, next, err := b.Store.List(ctx, snap, "/", after, 100)
+		if err != nil {
+			return nil, err
+		}
+		for _, rec := range records {
+			relations, _ := rec.Metadata["relations"].([]any)
+			for _, raw := range relations {
+				link, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				if id, _ := link["record"].(string); id == target.ID {
+					out = append(out, map[string]any{"path": rec.Path, "record": rec.ID, "relation": link["relation"]})
+				}
+			}
+			if len(out) >= 100 {
+				break
+			}
+		}
+		if next == "" {
+			break
+		}
+		after = next
+	}
+	return map[string]any{"items": out, "truncated": len(out) >= 100, "snapshot": snap.Commit}, nil
+}
+
+// comment stages a discussion message about a document: kind=message under
+// <path>/discussion/<id>, with the addressed agent in metadata.to. This is the
+// agent-to-agent channel — asynchronous, versioned, readable by humans.
+func (b *Broker) comment(ctx context.Context, e *Execution, about Record, a map[string]any) (any, error) {
+	text, ok := a["text"].(string)
+	if !ok || text == "" || len(text) > 65536 {
+		return nil, ErrInvalid
+	}
+	if err := b.allow(ctx, e, e.Primary, about.Path, "read"); err != nil {
+		return nil, err
+	}
+	slug := strings.Trim(about.Path, "/")
+	slug = strings.ReplaceAll(slug, "/", "-")
+	path, err := cleanPath("/discussions/" + slug + "/" + ID()[:8])
+	if err != nil {
+		return nil, err
+	}
+	rev := Revision{RecordID: ID(), Path: path, Kind: "message", Content: text, Metadata: map[string]any{"about": about.Path, "about_record": about.ID, "about_revision": about.Revision}}
+	if to := str(a, "to"); to != "" {
+		rev.Metadata["to"] = to
+	}
+	if err = b.stage(ctx, e, rev); err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": rev.RecordID, "path": path, "staged": true}, nil
 }

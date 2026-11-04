@@ -1,7 +1,7 @@
 package camp
 
 import (
-	"github.com/datretyakov/agent-camp/internal/tree"
+	"github.com/denisqq/agent-camp/internal/tree"
 	"context"
 	"encoding/json"
 	"errors"

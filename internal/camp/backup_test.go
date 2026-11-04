@@ -3,7 +3,7 @@ package camp
 import (
 	"archive/tar"
 	"bytes"
-	"github.com/datretyakov/agent-camp/internal/teststore"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"io"
 	"strings"
 	"testing"

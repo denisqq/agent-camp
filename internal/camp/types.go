@@ -1,7 +1,7 @@
 package camp
 
 import (
-	"github.com/datretyakov/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/objectstore"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"

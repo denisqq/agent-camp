@@ -1,4 +1,4 @@
-module github.com/datretyakov/agent-camp
+module github.com/denisqq/agent-camp
 
 go 1.27.3
 

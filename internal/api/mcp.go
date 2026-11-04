@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/datretyakov/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/camp"
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"net/http"

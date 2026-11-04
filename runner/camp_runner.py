@@ -97,6 +97,12 @@ class Camp:
     def link(self, path, target, relation):
         return self._call("link", dict(path=path, target=target, relation=relation))
 
+    def backlinks(self, path, space=""):
+        return self._call("backlinks", dict(path=path, space=space))
+
+    def comment(self, path, text, to=""):
+        return self._call("comment", dict(path=path, text=text, to=to))
+
     def related(self, path):
         return self._call("related", dict(path=path))
 
@@ -128,7 +134,7 @@ class Files:
         return base64.b64decode(result["base64"], validate=True)
 
 
-METHODS = {name for name in Brain.__dict__ if not name.startswith("_")}
+METHODS = {name for name in Camp.__dict__ if not name.startswith("_")}
 
 
 def main():

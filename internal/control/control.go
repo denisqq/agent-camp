@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/datretyakov/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/camp"
 
 	_ "modernc.org/sqlite"
 )

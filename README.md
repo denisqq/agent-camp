@@ -59,8 +59,25 @@ export CAMP_ADMIN_TOKEN=...
 CAMP_ROOT=./camp-data ./camp serve         # HTTP + MCP on 127.0.0.1:8090
 ```
 
-Connect any MCP client (Claude, Codex, Cursor, …) to `http://127.0.0.1:8090/mcp`
-with the issued token and try:
+Or with Docker (workspace in a volume; self-hosted S3 via MinIO: `docker compose --profile s3 up`):
+
+```bash
+CAMP_ADMIN_TOKEN=$(openssl rand -hex 32) docker compose up -d
+```
+
+### Connect agents natively
+
+`camp connect` emits MCP configs for popular clients and a skill text that
+teaches the agent the camp contract:
+
+```bash
+camp connect --format claude-code --write .mcp.json   # Claude Code / Cursor
+camp connect --format codex                           # merge into ~/.codex/config.toml
+camp connect --skill >> AGENTS.md                     # how to work with the camp
+export CAMP_TOKEN=$(camp token --subject my-agent --spaces workspace,shared | jq -r .token)
+```
+
+Then in any MCP client, mapped to `http://127.0.0.1:8090/mcp` with the token:
 
 ```
 map()                                  # discover spaces, no session needed
@@ -73,6 +90,10 @@ Python code execution uses [Monty](https://pydantic.dev/docs/monty/) (pinned
 runtime, language-level isolation, no host/network access from user code):
 `pip install pydantic-monty==1.4.0` and point `CAMP_RUNNER_PYTHON` /
 `CAMP_MONTY_BINARY` at the venv.
+
+The logical model (tree, kinds, sections with sharing, relations/backlinks,
+discussions, templates, history) is a deliberate wiki — see
+[docs/MODEL.md](docs/MODEL.md).
 
 ## What is deliberately not in the core
 

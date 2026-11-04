@@ -1,8 +1,8 @@
 package index
 
 import (
-	"github.com/datretyakov/agent-camp/internal/camp"
-	"github.com/datretyakov/agent-camp/internal/teststore"
+	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"errors"
 	"fmt"

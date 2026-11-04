@@ -6,7 +6,7 @@
 package filestore
 
 import (
-	"github.com/datretyakov/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/objectstore"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"

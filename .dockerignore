@@ -1,0 +1,4 @@
+camp-data/
+.git/
+dist/
+*.sqlite*

@@ -3,7 +3,7 @@ package runner
 
 import (
 	"bufio"
-	"github.com/datretyakov/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/camp"
 	"context"
 	"encoding/json"
 	"errors"

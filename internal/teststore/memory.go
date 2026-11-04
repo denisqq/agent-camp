@@ -3,7 +3,7 @@
 package teststore
 
 import (
-	"github.com/datretyakov/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/objectstore"
 	"context"
 	"fmt"
 	"sort"

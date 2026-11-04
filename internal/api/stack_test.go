@@ -2,10 +2,10 @@ package api
 
 import (
 	"bytes"
-	"github.com/datretyakov/agent-camp/internal/camp"
-	"github.com/datretyakov/agent-camp/internal/index"
-	"github.com/datretyakov/agent-camp/internal/objectstore"
-	"github.com/datretyakov/agent-camp/internal/runner"
+	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/index"
+	"github.com/denisqq/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/runner"
 	"context"
 	"encoding/json"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

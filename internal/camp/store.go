@@ -2,8 +2,8 @@ package camp
 
 import (
 	"bytes"
-	"github.com/datretyakov/agent-camp/internal/objectstore"
-	"github.com/datretyakov/agent-camp/internal/tree"
+	"github.com/denisqq/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/tree"
 	"context"
 	"encoding/json"
 	"errors"

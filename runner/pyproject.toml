@@ -1,0 +1,8 @@
+[project]
+name = "agent-camp-runner"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["pydantic-monty==1.4.0"]
+
+[tool.uv]
+package = false

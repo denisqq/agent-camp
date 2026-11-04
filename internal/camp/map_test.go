@@ -1,8 +1,8 @@
 package camp
 
 import (
-	"github.com/datretyakov/agent-camp/internal/objectstore"
-	"github.com/datretyakov/agent-camp/internal/teststore"
+	"github.com/denisqq/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"encoding/json"
 	"errors"

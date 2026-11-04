@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/datretyakov/agent-camp/internal/api"
-	"github.com/datretyakov/agent-camp/internal/camp"
-	"github.com/datretyakov/agent-camp/internal/control"
-	"github.com/datretyakov/agent-camp/internal/filestore"
-	"github.com/datretyakov/agent-camp/internal/index"
-	"github.com/datretyakov/agent-camp/internal/objectstore"
-	"github.com/datretyakov/agent-camp/internal/runner"
+	"github.com/denisqq/agent-camp/internal/api"
+	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/control"
+	"github.com/denisqq/agent-camp/internal/filestore"
+	"github.com/denisqq/agent-camp/internal/index"
+	"github.com/denisqq/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/runner"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -57,7 +57,7 @@ func root() string { return env("CAMP_ROOT", "./camp-data") }
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: camp init|serve|token|index|backup|restore")
+		return errors.New("usage: camp init|serve|token|connect|index|backup|restore")
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -83,6 +83,11 @@ func run() error {
 				return err
 			}
 			adminToken = hex.EncodeToString(raw)
+		}
+		if s3, ok := objects.(*objectstore.S3); ok {
+			if err = s3.EnsureBucket(ctx); err != nil {
+				return err
+			}
 		}
 		if err = auth.Bootstrap(ctx, adminToken); err != nil {
 			return err
@@ -114,10 +119,30 @@ func run() error {
 			return err
 		}
 		return json.NewEncoder(os.Stdout).Encode(map[string]string{"token": token})
+	case "connect":
+		return connect(os.Args[2:])
 	case "backup":
 		return store.Backup(ctx, os.Stdout)
 	case "restore":
 		return store.Restore(ctx, os.Stdin)
+	case "init-and-serve":
+		adminToken := os.Getenv("CAMP_ADMIN_TOKEN")
+		if adminToken == "" {
+			return errors.New("CAMP_ADMIN_TOKEN is required for init-and-serve")
+		}
+		if s3, ok := objects.(*objectstore.S3); ok {
+			if err = s3.EnsureBucket(ctx); err != nil {
+				return err
+			}
+		}
+		if err = auth.Bootstrap(ctx, adminToken); err != nil {
+			return err
+		}
+		if _, err = store.CreateSpace(ctx, camp.Space{ID: "shared", Kind: "shared", Owner: "system"}); err != nil && !errors.Is(err, camp.ErrConflict) {
+			return err
+		}
+		os.Args[1] = "serve"
+		fallthrough
 	case "serve", "index":
 	default:
 		return errors.New("unknown command")

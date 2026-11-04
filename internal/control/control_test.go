@@ -1,7 +1,7 @@
 package control
 
 import (
-	"github.com/datretyakov/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/camp"
 	"context"
 	"errors"
 	"testing"

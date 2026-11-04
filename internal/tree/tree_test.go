@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"github.com/datretyakov/agent-camp/internal/teststore"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"fmt"
 	"testing"

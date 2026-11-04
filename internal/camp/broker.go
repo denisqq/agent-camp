@@ -446,6 +446,13 @@ func (b *Broker) Call(ctx context.Context, e *Execution, method string, a map[st
 		return map[string]any{"before": before, "after": after}, nil
 	case "related":
 		return rev.Metadata["relations"], nil
+	case "backlinks":
+		return b.backlinks(ctx, e, space, rec)
+	case "comment":
+		if space != e.Primary {
+			return nil, ErrDenied
+		}
+		return b.comment(ctx, e, rec, a)
 	case "proposal_status":
 		return b.proposalStatus(ctx, e, space, rev)
 	case "move", "delete", "patch", "annotate", "revert", "link", "propose":
