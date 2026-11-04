@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agent-camp": {
+      "type": "http",
+      "url": "${CAMP_MCP_URL:-http://127.0.0.1:8090}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CAMP_TOKEN}"
+      }
+    }
+  }
+}

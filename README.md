@@ -65,16 +65,31 @@ Or with Docker (workspace in a volume; self-hosted S3 via MinIO: `docker compose
 CAMP_ADMIN_TOKEN=$(openssl rand -hex 32) docker compose up -d
 ```
 
-### Connect agents natively
+### Install for agents (superpowers-style)
 
-`camp connect` emits MCP configs for popular clients and a skill text that
-teaches the agent the camp contract:
+One command per harness installs the MCP wiring **and** a skill that teaches
+the agent the camp contract (`map → start → run`, conflicts, discussions):
 
 ```bash
-camp connect --format claude-code --write .mcp.json   # Claude Code / Cursor
-camp connect --format codex                           # merge into ~/.codex/config.toml
-camp connect --skill >> AGENTS.md                     # how to work with the camp
+camp connect claude-code   # .mcp.json + .claude/skills/using-agent-camp in cwd
+camp connect codex         # ~/.codex/config.toml + ~/.codex/skills/...
+camp connect cursor        # .cursor/mcp.json + .cursor/skills/...
+camp connect claude-desktop --print   # snippet to merge
 export CAMP_TOKEN=$(camp token --subject my-agent --spaces workspace,shared | jq -r .token)
+```
+
+Claude Code can also install camp as a plugin from this repository's
+marketplace (skills + MCP config, managed by the plugin system):
+
+```
+/plugin marketplace add denisqq/agent-camp
+/plugin install agent-camp
+```
+
+Or from npm (downloads the platform binary on install):
+
+```bash
+npx agent-camp@latest connect claude-code
 ```
 
 Then in any MCP client, mapped to `http://127.0.0.1:8090/mcp` with the token:

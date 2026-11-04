@@ -1,0 +1,6 @@
+{
+  "name": "agent-camp",
+  "version": "0.1.0",
+  "description": "Shared workspace for agent teams: map/start/run over a versioned, transactional document store.",
+  "author": { "name": "denisqq" }
+}

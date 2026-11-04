@@ -1,0 +1,14 @@
+{
+  "name": "agent-camp",
+  "owner": {
+    "name": "denisqq"
+  },
+  "plugins": [
+    {
+      "name": "agent-camp",
+      "source": "./plugins/agent-camp",
+      "description": "Shared workspace for agent teams: map/start/run over a versioned, transactional document store.",
+      "version": "0.1.0"
+    }
+  ]
+}
