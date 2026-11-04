@@ -105,5 +105,21 @@ rebuilds; lose control → the operator reissues tokens; memory is intact.
   receipt {status, result, change_id} ──▶ control (idempotent replay)
 ```
 
+## How many agents fit in one space?
+
+Writes use optimistic concurrency control, not a global lock:
+
+* HEAD advance no longer rejects a changeset outright. The engine validates
+  that every written record's parent is still current, that no read record
+  was moved/deleted, and that no involved section ACL changed. Disjoint work
+  rebases over the new HEAD and retries the conditional write (bounded loop).
+* Contention is therefore **per document**, not per space: twenty agents
+  editing different documents in one team space do not conflict. A conflict
+  means a real collision — same record, structural move of something you
+  read, or a permission change — exactly the cases where redoing with fresh
+  eyes is the right call.
+* Reads never contend: sessions pin immutable snapshots; the search index
+  syncs asynchronously from accepted commits.
+
 Read [MODEL.md](MODEL.md) for the logical document model and [AGENTS.md](../AGENTS.md)
 for the invariants behind these diagrams.

@@ -48,6 +48,11 @@ just <recipe>                      # see justfile
 4. **Ordering**: `orderRevisions` applies path-vacating revisions (delete,
    move-away) before occupants; swaps cycle → explicit conflict. If you touch
    Commit, the changeset tests in `changeset_test.go` must still pass.
+4a. **Optimistic concurrency**: a HEAD advance alone never rejects a changeset —
+   `checkRebase` must keep fencing exactly these cases: same-record parent
+   mismatch, structural change (path/deleted) of a read dependency, effective
+   ACL change on any involved path, and shared-view source changes. Disjoint
+   write sets rebase over unrelated commits (`concurrent_test.go` locks this).
 5. **Access fails closed**: unknown/invalid access metadata means denied, not
    open. Space owner/admin always pass; shared spaces have fixed policy.
 6. **Control plane ≠ memory**: tokens/sessions/receipts live in

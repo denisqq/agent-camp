@@ -226,3 +226,44 @@ func TestRebasePreservesPendingSeedMarker(t *testing.T) {
 		t.Fatal("concurrent document lost", err)
 	}
 }
+
+// A read whose document only gained newer content (same path, not deleted)
+// does not fence a rebase: the agent reasoned about an immutable revision,
+// and its write set is disjoint. Structural moves of read records still fence.
+func TestRebaseAllowsNewerContentOnReadDependencies(t *testing.T) {
+	b, alice, bob := workspace(t, "writer")
+	ctx := t.Context()
+	one, _ := b.Begin(ctx, alice, "alice")
+	if _, err := b.Call(ctx, one, "write", map[string]any{"path": "/project/doc", "content": "v1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Finish(ctx, one, "seed", Receipt{}); err != nil {
+		t.Fatal(err)
+	}
+	reader, _ := b.Begin(ctx, bob, "alice")
+	if _, err := b.Call(ctx, reader, "read", map[string]any{"path": "/project/doc"}); err != nil {
+		t.Fatal(err)
+	}
+	writer, _ := b.Begin(ctx, alice, "alice")
+	if _, err := b.Call(ctx, writer, "write", map[string]any{"path": "/project/doc", "content": "v2"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Finish(ctx, writer, "update", Receipt{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Call(ctx, reader, "write", map[string]any{"path": "/project/other", "content": "note"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Finish(ctx, reader, "note", Receipt{}); err != nil {
+		t.Fatal("disjoint write fenced by newer content on a read dependency", err)
+	}
+	snap, _ := b.Store.Load(ctx, "alice")
+	rec, err := b.Store.RecordByPath(ctx, snap, "/project/other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rev, _ := b.Store.ReadRevision(ctx, "alice", rec.Revision)
+	if rev.Content != "note" || rec.ID == "" {
+		t.Fatal(rev)
+	}
+}

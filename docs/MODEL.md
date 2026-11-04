@@ -95,10 +95,14 @@ convention again, one line of content.
 
 | Event | Result |
 |---|---|
-| Two agents write in one space | serialized per space; the second gets `conflict` + the current snapshot, then refreshes and retries |
+| Two agents write **different documents** in one space | both commit: the second changeset is rebased over the first (optimistic concurrency: write-set and read-set are validated, not the whole space) |
+| Two agents change the **same document** | the later one gets `conflict` + the current snapshot; it refreshes and re-applies |
+| Someone moved/deleted a record the agent read, or changed an ACL involved | `conflict` — structural reads and policy fences are strict |
+| A read document merely gained newer content | not a conflict: agents reason about immutable revisions |
 | Run crashes mid-write | staging is discarded; accepted changesets never half-apply |
 | Same operation retried | idempotent: the original receipt is returned, no duplicate write |
 | Session reads | pinned snapshot + own staging: a run sees a consistent world |
 
 One changeset per successful run, in one space — like a commit, but authored
-by a program.
+by a program. Many agents coexist in one team space as long as they touch
+disjoint documents; contention is per document, not per space.
