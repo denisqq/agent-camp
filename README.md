@@ -122,6 +122,13 @@ discussions, templates, history) is a deliberate wiki — see
 - **Message transport / orchestration** — agents communicate through the
   workspace, not through us.
 
+## Contributing (agents and humans)
+
+The repository is AI-native: [AGENTS.md](AGENTS.md) is the working guide
+(build/test commands, repo map, the invariants that must not break,
+conventions for SDK changes); CLAUDE.md/GEMINI.md point to it. `justfile`
+holds the runnable recipes.
+
 ## Status
 
 Early. Extracted from a production agent platform; core storage, sessions,
