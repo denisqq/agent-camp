@@ -108,7 +108,8 @@ runtime, language-level isolation, no host/network access from user code):
 
 The logical model (tree, kinds, sections with sharing, relations/backlinks,
 discussions, templates, history) is a deliberate wiki — see
-[docs/MODEL.md](docs/MODEL.md).
+[docs/MODEL.md](docs/MODEL.md). System diagrams (C1–C3) and what a *space*
+is live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## What is deliberately not in the core
 
