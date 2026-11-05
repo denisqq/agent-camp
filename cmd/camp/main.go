@@ -1,6 +1,13 @@
 package main
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
 	"github.com/denisqq/agent-camp/internal/api"
 	"github.com/denisqq/agent-camp/internal/camp"
 	"github.com/denisqq/agent-camp/internal/config"
@@ -9,13 +16,6 @@ import (
 	"github.com/denisqq/agent-camp/internal/index"
 	"github.com/denisqq/agent-camp/internal/objectstore"
 	"github.com/denisqq/agent-camp/internal/runner"
-	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"flag"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -95,6 +95,7 @@ func run() error {
 	}
 	defer ctl.Close()
 	auth := camp.NewAuth(ctl)
+	auth.Identities = ctl
 	switch os.Args[1] {
 	case "init":
 		adminToken := os.Getenv("CAMP_ADMIN_TOKEN")
@@ -201,7 +202,8 @@ func run() error {
 	broker.Search = idx
 	sessions := camp.NewSessions(broker, pool)
 	sessions.State = ctl
-	handler := api.New(sessions)
+	registrations := &camp.RegistrationService{Auth: auth, Identities: ctl, Store: store, Policy: camp.RegistrationPolicy{Mode: cfg.Registration.Mode, StarterWorkspace: cfg.Registration.StarterWorkspace}}
+	handler := api.New(sessions, registrations)
 	if os.Args[1] == "mcp" {
 		// Stdio mode for clients that spawn the server as a process.
 		return api.NewAPI(sessions).RunStdio(ctx)

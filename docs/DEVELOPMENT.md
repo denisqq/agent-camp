@@ -68,6 +68,29 @@ cannot silently switch an installation to an empty backend.
 See the [onboarding design](superpowers/specs/2026-11-05-agent-camp-onboarding-design.md)
 for the storage setup contract this serves.
 
+## Agent registration
+
+Control SQLite now also stores Camp-local users and their agents
+(`internal/camp/identity.go`, `internal/control/identity.go`). A credential
+may carry `agent_id`; authentication then requires that agent and its owner
+to be active. Legacy principals (including `brain-curator` grants) are
+unaffected.
+
+`POST /v1/agents/register` registers an agent from a display name (and an
+optional client label only — the request cannot choose an owner, role,
+space, or scopes). With a valid agent credential it registers under that
+credential's user; without one it works only when
+`registration.mode = "open"` and then creates a new Camp-local user. A
+presented-but-invalid credential fails closed. `GET /v1/identity` verifies
+a saved credential and reports its user and agent. The server — through
+`registration.starter_workspace` — selects the granted workspace (writer
+access) via the normal CAS commit path; the agent row stays `pending` and
+no credential is issued until that grant commits.
+
+The registration service is the boundary a future identity provider plugs
+into: it consumes an established `UserContext` and never an arbitrary
+owner ID. No provider code exists yet.
+
 ## Sharing a team space
 
 Creating a space with `kind: "team"` does not grant every agent access. Its owner

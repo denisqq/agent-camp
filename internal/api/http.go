@@ -13,6 +13,9 @@ import (
 
 type API struct {
 	Sessions *camp.Sessions
+	// Registrations, when set, enables POST /v1/agents/register and the
+	// agent details in GET /v1/identity.
+	Registrations *camp.RegistrationService
 	// Fallback authenticates stdio MCP clients, where no HTTP bearer header
 	// exists: the principal is resolved from CAMP_TOKEN at startup.
 	Fallback func(context.Context) (camp.Principal, error)
@@ -21,14 +24,21 @@ type API struct {
 // NewAPI exposes the API type for transports other than HTTP (stdio MCP).
 func NewAPI(s *camp.Sessions) *API { return &API{Sessions: s} }
 
-func New(s *camp.Sessions) http.Handler {
+// New builds the HTTP handler. An optional RegistrationService enables
+// POST /v1/agents/register and agent details in GET /v1/identity.
+func New(s *camp.Sessions, registrations ...*camp.RegistrationService) http.Handler {
 	a := &API{Sessions: s}
+	if len(registrations) > 0 {
+		a.Registrations = registrations[0]
+	}
 	router := chi.NewRouter()
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) { reply(w, map[string]string{"status": "ok"}, nil) })
 	verify := func(ctx context.Context, token string, request *http.Request) (*mcpauth.TokenInfo, error) {
 		p, err := s.Broker.Auth.Authenticate(ctx, token)
 		if err != nil {
-			return nil, err
+			// Revoked, expired, or owner-disabled credentials are
+			// authentication failures: report 401, never a server error.
+			return nil, mcpauth.ErrInvalidToken
 		}
 		return &mcpauth.TokenInfo{UserID: p.TokenHash, Expiration: p.Expires, Scopes: p.Scopes, Extra: map[string]any{"principal": p}}, nil
 	}
@@ -37,6 +47,7 @@ func New(s *camp.Sessions) http.Handler {
 		r.Handle("/mcp", a.mcp())
 		r.Post("/v1/sessions/start", a.start)
 		r.Post("/v1/sessions/{session}/run", a.run)
+		r.Get("/v1/identity", a.identity)
 		r.Post("/v1/admin/spaces", a.createSpace)
 		r.Get("/v1/admin/spaces", a.listSpaces)
 		r.Get("/v1/admin/spaces/{space}", a.getSpace)
@@ -46,6 +57,9 @@ func New(s *camp.Sessions) http.Handler {
 		r.Post("/v1/files/upload", a.upload)
 		r.Get("/v1/files/download", a.download)
 	})
+	// Open registration is reachable without a credential when (and only
+	// when) the server policy explicitly enables it.
+	router.Post("/v1/agents/register", a.register)
 	return http.NewCrossOriginProtection().Handler(router)
 }
 func principal(ctx context.Context) (camp.Principal, error) {
@@ -78,6 +92,9 @@ func reply(w http.ResponseWriter, value any, err error) {
 		status := http.StatusInternalServerError
 		message := "operation unavailable"
 		switch {
+		case errors.Is(err, camp.ErrRegistrationDisabled):
+			status = http.StatusForbidden
+			message = "agent registration is disabled on this server"
 		case errors.Is(err, camp.ErrDenied):
 			status = 403
 			message = "access denied"
