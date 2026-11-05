@@ -57,7 +57,7 @@ func root() string { return env("CAMP_ROOT", "./camp-data") }
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: camp init|serve|token|connect|index|backup|restore")
+		return errors.New("usage: camp init|serve|mcp|token|connect|index|backup|restore")
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -143,7 +143,7 @@ func run() error {
 		}
 		os.Args[1] = "serve"
 		fallthrough
-	case "serve", "index":
+	case "serve", "mcp", "index":
 	default:
 		return errors.New("unknown command")
 	}
@@ -181,6 +181,10 @@ func run() error {
 	sessions := camp.NewSessions(broker, pool)
 	sessions.State = ctl
 	handler := api.New(sessions)
+	if os.Args[1] == "mcp" {
+		// Stdio mode for clients that spawn the server as a process.
+		return api.NewAPI(sessions).RunStdio(ctx)
+	}
 	server := &http.Server{Addr: env("CAMP_LISTEN", "127.0.0.1:8090"), Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Accepted commits push index syncs; the periodic pass is only a backstop
 	// for commits made outside this process (init, restore, CLI).

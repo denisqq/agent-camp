@@ -11,10 +11,18 @@ import (
 	"net/http"
 )
 
-type API struct{ Sessions *camp.Sessions }
+type API struct {
+	Sessions *camp.Sessions
+	// Fallback authenticates stdio MCP clients, where no HTTP bearer header
+	// exists: the principal is resolved from CAMP_TOKEN at startup.
+	Fallback func(context.Context) (camp.Principal, error)
+}
+
+// NewAPI exposes the API type for transports other than HTTP (stdio MCP).
+func NewAPI(s *camp.Sessions) *API { return &API{Sessions: s} }
 
 func New(s *camp.Sessions) http.Handler {
-	a := &API{s}
+	a := &API{Sessions: s}
 	router := chi.NewRouter()
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) { reply(w, map[string]string{"status": "ok"}, nil) })
 	verify := func(ctx context.Context, token string, request *http.Request) (*mcpauth.TokenInfo, error) {

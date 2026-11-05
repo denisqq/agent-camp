@@ -65,7 +65,7 @@ Or with Docker (workspace in a volume; self-hosted S3 via MinIO: `docker compose
 CAMP_ADMIN_TOKEN=$(openssl rand -hex 32) docker compose up -d
 ```
 
-### Install for agents (superpowers-style)
+### Install for agents (one command per harness)
 
 One command per harness installs the MCP wiring **and** a skill that teaches
 the agent the camp contract (`map → start → run`, conflicts, discussions):
