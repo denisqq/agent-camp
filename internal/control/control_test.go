@@ -1,9 +1,9 @@
 package control
 
 import (
-	"github.com/denisqq/agent-camp/internal/camp"
 	"context"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/camp"
 	"testing"
 )
 

@@ -2,7 +2,7 @@
 # serve both `setup server` and the running service.
 #
 #   docker compose -f examples/compose/local.yaml pull
-#   docker compose -f examples/compose/local.yaml run --rm camp setup server
+#   docker compose -f examples/compose/local.yaml run --rm camp camp-server setup
 #   docker compose -f examples/compose/local.yaml up -d
 services:
   camp:
@@ -14,7 +14,7 @@ services:
       - camp-data:/data
     environment:
       CAMP_CONFIG: /config/camp.json
-    command: ["serve"]
+    command: ["camp-server", "serve"]
 
 volumes:
   camp-config:

@@ -20,10 +20,10 @@ docker build -qt "$image" .
 mounts=(-v "$work/config:/config" -v "$work/data:/data" -v "$work/home:/home/camp" -e CAMP_CONFIG=/config/camp.json --user 10001:10001)
 
 echo "== setup server =="
-docker run --rm "${mounts[@]}" --entrypoint camp "$image" setup server --open-registration | tail -1
+docker run --rm "${mounts[@]}" --entrypoint camp --entrypoint camp-server "$image" setup --open-registration | tail -1
 
 echo "== serve =="
-docker run -d --name camp-smoke -p "127.0.0.1:$port:8090" "${mounts[@]}" "$image" serve >/dev/null
+docker run -d --name camp-smoke -p "127.0.0.1:$port:8090" "${mounts[@]}" --entrypoint camp-server "$image" serve >/dev/null
 for _ in $(seq 1 30); do
   if docker exec camp-smoke camp readycheck http://127.0.0.1:8090/ready >/dev/null 2>&1; then break; fi
   sleep 1
@@ -36,7 +36,7 @@ docker exec camp-smoke camp doctor --profile smoke --write | grep -q "write/read
 
 echo "== replace container, same persistent state =="
 docker rm -f camp-smoke >/dev/null
-docker run -d --name camp-smoke -p "127.0.0.1:$port:8090" "${mounts[@]}" "$image" serve >/dev/null
+docker run -d --name camp-smoke -p "127.0.0.1:$port:8090" "${mounts[@]}" --entrypoint camp-server "$image" serve >/dev/null
 for _ in $(seq 1 30); do
   if docker exec camp-smoke camp readycheck http://127.0.0.1:8090/ready >/dev/null 2>&1; then break; fi
   sleep 1

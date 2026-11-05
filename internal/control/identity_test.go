@@ -133,4 +133,3 @@ func TestIdentityRecordsExcludedFromWorkspaceBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-

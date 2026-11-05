@@ -2,6 +2,11 @@
 
 ## Checks
 
+Two binaries ship from this repository: `camp` (client: onboarding,
+bridges, local service management) and `camp-server` (server runtime for
+process managers and containers). Both are cobra CLIs over the shared
+internal packages.
+
 Use the Go version from [go.mod](../go.mod). The full check chain is:
 
 ```bash

@@ -44,8 +44,9 @@ just <recipe>                      # see justfile
 | `runner/camp_runner.py` | the sandbox: Monty process + `camp_sdk` exposed to agent code |
 | `internal/api` | HTTP `/v1` + MCP server (map/start/run) |
 | `internal/server` | server runtime: engine wiring, serve/mcp/index, bootstrap |
-| `internal/cli` | the camp command line (client onboarding + server commands) |
-| `cmd/camp` | thin entry point; all logic in internal/cli and internal/server |
+| `internal/cli` | the camp client command line: setup/register/bridge/doctor/connect, status/up/down (cobra) |
+| `internal/servercmd` | the camp-server command line: serve/mcp/init/token/backup/setup (cobra) |
+| `cmd/camp`, `cmd/camp-server` | thin entry points; logic lives in internal/cli and internal/server/cmd |
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
 | `npm/` | npm wrapper (downloads release binaries) |
@@ -86,8 +87,9 @@ just <recipe>                      # see justfile
 
 ## Conventions
 
-- Go: stdlib-first, no new dependencies without need; errors are the
-  package sentinels (`ErrNotFound/ErrConflict/ErrDenied/ErrInvalid`).
+- Go: stdlib-first, no new dependencies without need (cobra is the one
+  CLI dependency, used by both binaries); errors are the package sentinels
+  (`ErrNotFound/ErrConflict/ErrDenied/ErrInvalid`).
 - Tests sit next to code; adversarial scenarios (conflict races, revocation,
   poison records) are written as tests, not comments.
 - Adding an SDK method = four pieces: broker `case` in `internal/camp`,

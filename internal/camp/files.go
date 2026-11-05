@@ -1,7 +1,6 @@
 package camp
 
 import (
-	"github.com/denisqq/agent-camp/internal/tree"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -9,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/denisqq/agent-camp/internal/tree"
 	"io"
 	"time"
 )

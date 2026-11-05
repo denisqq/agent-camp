@@ -77,9 +77,12 @@ func (s Service) Start(addr string) (int, error) {
 	} else if pid != 0 {
 		return pid, nil
 	}
-	if _, err := AcquirePort(addr); err != nil {
+	// Verify the address is free, then release it for the child.
+	probe, err := AcquirePort(addr)
+	if err != nil {
 		return 0, err
 	}
+	probe.Close()
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
 		return 0, err

@@ -1,17 +1,7 @@
-// Command camp is the single entry point; all command logic lives in
-// internal/cli (client commands) and internal/server (server runtime).
+// Command camp is the client binary: agent onboarding, client bridges,
+// and local service management. The server runtime ships as camp-server.
 package main
 
-import (
-	"log/slog"
-	"os"
+import "github.com/denisqq/agent-camp/internal/cli"
 
-	"github.com/denisqq/agent-camp/internal/cli"
-)
-
-func main() {
-	if err := cli.Run(os.Args[1:]); err != nil {
-		slog.Error("camp stopped", "error", err)
-		os.Exit(1)
-	}
-}
+func main() { cli.Execute() }

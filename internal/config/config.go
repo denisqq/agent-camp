@@ -327,3 +327,18 @@ func Save(path string, cfg Config) error {
 	}
 	return os.Rename(tmpName, path)
 }
+
+// DiscoverPath picks the configuration file: an explicit CAMP_CONFIG, a
+// camp.json in the working directory, or the OS user configuration
+// directory. When the user file does not exist either, Load on that path
+// still yields the historical defaults via its fallback handling in the
+// CLI. Shared by both binaries.
+func DiscoverPath() string {
+	if p := os.Getenv("CAMP_CONFIG"); p != "" {
+		return p
+	}
+	if _, err := os.Stat("camp.json"); err == nil {
+		return "camp.json"
+	}
+	return UserPath()
+}

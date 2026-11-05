@@ -10,7 +10,7 @@ services:
     volumes:
       - camp-config:/config
       - camp-data:/data
-    command: ["init-and-serve"]
+    command: ["camp-server", "init-and-serve"]
 
 volumes:
   camp-config:

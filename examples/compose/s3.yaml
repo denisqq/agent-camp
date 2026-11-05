@@ -18,7 +18,7 @@ services:
       - camp-control:/data
     environment:
       CAMP_CONFIG: /config/camp.json
-    command: ["serve"]
+    command: ["camp-server", "serve"]
 
   s3:
     image: quay.io/minio/minio:latest

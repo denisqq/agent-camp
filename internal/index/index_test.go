@@ -1,11 +1,11 @@
 package index
 
 import (
-	"github.com/denisqq/agent-camp/internal/camp"
-	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"path/filepath"
 	"testing"
 )

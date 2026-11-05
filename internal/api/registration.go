@@ -33,6 +33,17 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 					owner = &camp.UserContext{User: user}
 				}
 			}
+		} else if err == nil && p.Role == "admin" {
+			// Owner provisioning: the administrator credential registers
+			// agents under the instance owner without opening public
+			// registration. A registration request still cannot choose
+			// roles, spaces, or another user.
+			user, uErr := a.Registrations.Identities.User(r.Context(), camp.OwnerUserID)
+			if uErr == nil && !user.Disabled {
+				owner = &camp.UserContext{User: user}
+			} else {
+				err = uErr
+			}
 		}
 		if owner == nil && err != nil {
 			// A presented-but-invalid credential never downgrades into

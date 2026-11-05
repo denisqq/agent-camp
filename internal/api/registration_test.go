@@ -172,3 +172,32 @@ func TestAPISessionResumeDeniedAfterOwnerDisabled(t *testing.T) {
 	}
 	_ = time.Now
 }
+
+func TestAdminTokenProvisionsUnderOwner(t *testing.T) {
+	// Server with registration disabled: only the administrator
+	// credential (local setup path) can register agents, under the
+	// instance owner user.
+	ctx, server, reg := registrationServer(t, "disabled")
+	if err := reg.Identities.CreateUser(ctx, camp.User{ID: camp.OwnerUserID, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	adminToken := "admin-" + camp.ID()
+	if err := reg.Auth.Bootstrap(ctx, adminToken); err != nil {
+		t.Fatal(err)
+	}
+	resp := post(t, server.URL+"/v1/agents/register", `{"name":"codex"}`, adminToken)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("admin provisioning failed: %d", resp.StatusCode)
+	}
+	var registration camp.Registration
+	if err := json.NewDecoder(resp.Body).Decode(&registration); err != nil {
+		t.Fatal(err)
+	}
+	if registration.UserID != camp.OwnerUserID {
+		t.Fatalf("admin registration not under owner: %+v", registration)
+	}
+	if _, err := reg.Auth.Authenticate(ctx, registration.Token); err != nil {
+		t.Fatal(err)
+	}
+}

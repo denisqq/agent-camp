@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/spf13/cobra"
 )
 
 // camp doctor reports the installation's health: binary and profile
@@ -18,14 +18,24 @@ import (
 // read-only unless --write is passed, in which case it creates an
 // identified test document through the server (with normal revision
 // history) and reports the cleanup path. Secrets are never printed.
-func doctor(args []string) error {
-	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
-	profileName := flags.String("profile", "", "profile to check (default: all saved profiles)")
-	write := flags.Bool("write", false, "also perform a real write/read check through the server")
-	jsonOut := flags.Bool("json", false, "machine-readable output for agent-driven setup")
-	if err := flags.Parse(args); err != nil {
-		return err
+// doctorCmd reports installation health; read-only unless --write.
+func doctorCmd() *cobra.Command {
+	var profileName string
+	var write, jsonOut bool
+	c := &cobra.Command{
+		Use:   "doctor",
+		Short: "Check the installation: profiles, server reachability, credentials",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return doctorRun(profileName, write, jsonOut)
+		},
 	}
+	c.Flags().StringVar(&profileName, "profile", "", "profile to check (default: all saved profiles)")
+	c.Flags().BoolVar(&write, "write", false, "also perform a real write/read check through the server")
+	c.Flags().BoolVar(&jsonOut, "json", false, "machine-readable output for agent-driven setup")
+	return c
+}
+
+func doctorRun(profileName string, write, jsonOut bool) error {
 
 	type report struct {
 		Profile string `json:"profile"`
@@ -44,7 +54,7 @@ func doctor(args []string) error {
 			continue
 		}
 		profile := strings.TrimSuffix(strings.TrimPrefix(name, "profile-"), ".json")
-		if *profileName != "" && profile != *profileName {
+		if profileName != "" && profile != profileName {
 			continue
 		}
 		if checked[profile] {
@@ -64,7 +74,7 @@ func doctor(args []string) error {
 		default:
 			status, detail := checkServer(p.ServerURL, token)
 			r.State, r.Detail = status, detail
-			if status == "reachable+authorized" && *write {
+			if status == "reachable+authorized" && write {
 				if wErr := writeCheck(p.ServerURL, token); wErr != nil {
 					r.Detail += "; write check failed: " + wErr.Error()
 				} else {
@@ -75,10 +85,10 @@ func doctor(args []string) error {
 		reports = append(reports, r)
 	}
 	if len(reports) == 0 {
-		reports = append(reports, report{Profile: *profileName, State: "configured", Detail: "no saved profiles; run camp register or camp setup"})
+		reports = append(reports, report{Profile: profileName, State: "configured", Detail: "no saved profiles; run camp register or camp setup"})
 	}
 
-	if *jsonOut {
+	if jsonOut {
 		return json.NewEncoder(os.Stdout).Encode(reports)
 	}
 	for _, r := range reports {

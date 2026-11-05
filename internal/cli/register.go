@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
 	"github.com/denisqq/agent-camp/internal/setup"
+	"github.com/spf13/cobra"
 )
 
 type agentRegistration struct {
@@ -64,65 +64,68 @@ func (httpRegisterer) Register(ctx context.Context, server, name, clientLabel, e
 	return setup.Registration{UserID: reg.UserID, AgentID: reg.AgentID, Token: reg.Token, Workspace: reg.Workspace}, nil
 }
 
-// camp register connects to an existing Camp server and registers an agent
-// for an established user (or, on an explicitly open server, a new local
-// user). The returned identity and credential are saved privately; the
-// display name alone never recovers an existing identity.
-func register(args []string) error {
-	flags := flag.NewFlagSet("register", flag.ContinueOnError)
-	server := flags.String("server", "", "camp server URL (required)")
-	name := flags.String("name", "", "agent display name (required)")
-	client := flags.String("client", "", "optional client label, e.g. codex")
-	profileName := flags.String("profile", "", "profile name to save (defaults to a name derived from the server)")
-	token := flags.String("token", "", "existing credential to register under (default: private profile credential)")
-	asProfile := flags.String("as", "", "register under the user of this saved profile (uses its private credential)")
-	if err := flags.Parse(args); err != nil {
-		return err
+// registerCmd registers an agent for an established user (or, on an
+// explicitly open server, a new local user). The returned identity and
+// credential are saved privately; a display name alone never recovers an
+// existing identity.
+func registerCmd() *cobra.Command {
+	var serverAddr, name, clientLabel, profileName, token, asProfile string
+	c := &cobra.Command{
+		Use:   "register",
+		Short: "Register an agent on a Camp server and save the credential privately",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if serverAddr == "" || name == "" {
+				return fmt.Errorf("--server and --name are required")
+			}
+			if profileName == "" {
+				profileName = profileFromServer(serverAddr)
+			}
+			return registerRun(cmd.Context(), serverAddr, name, clientLabel, profileName, token, asProfile)
+		},
 	}
-	if *server == "" || *name == "" {
-		return fmt.Errorf("usage: camp register --server https://camp.example.com --name codex-laptop [--client codex] [--profile name]")
-	}
-	*server = strings.TrimSuffix(*server, "/")
-	if *profileName == "" {
-		*profileName = profileFromServer(*server)
-	}
+	c.Flags().StringVar(&serverAddr, "server", "", "camp server URL (required)")
+	c.Flags().StringVar(&name, "name", "", "agent display name (required)")
+	c.Flags().StringVar(&clientLabel, "client", "", "optional client label, e.g. codex")
+	c.Flags().StringVar(&profileName, "profile", "", "profile name to save (default: derived from the server)")
+	c.Flags().StringVar(&token, "token", "", "existing credential to register under (default: private profile credential)")
+	c.Flags().StringVar(&asProfile, "as", "", "register under the user of this saved profile (uses its private credential)")
+	return c
+}
 
-	if *token == "" && *asProfile != "" {
-		store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-		if profile, err := store.LoadProfile(*asProfile); err == nil && profile.CredentialRef != "" {
-			if saved, err := store.LoadCredential(profile.CredentialRef); err == nil {
-				*token = saved
+func registerRun(ctx context.Context, server, name, clientLabel, profileName, token, asProfile string) error {
+	server = strings.TrimSuffix(server, "/")
+	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
+	if token == "" {
+		for _, candidate := range []string{asProfile, profileName} {
+			if candidate == "" {
+				continue
+			}
+			if profile, err := store.LoadProfile(candidate); err == nil && profile.CredentialRef != "" {
+				if saved, err := store.LoadCredential(profile.CredentialRef); err == nil {
+					token = saved
+					break
+				}
 			}
 		}
 	}
-	if *token == "" {
-		store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-		if profile, err := store.LoadProfile(*profileName); err == nil && profile.CredentialRef != "" {
-			if saved, err := store.LoadCredential(profile.CredentialRef); err == nil {
-				*token = saved
-			}
-		}
-	}
-	registration, err := registerOnServer(context.Background(), *server, *name, *client, *token)
+	registration, err := registerOnServer(ctx, server, name, clientLabel, token)
 	if err != nil {
 		return err
 	}
-
 	launcher, err := absoluteLauncher()
 	if err != nil {
 		return err
 	}
-	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
 	ref := "agent-" + registration.AgentID
 	if err := store.SaveCredential(ref, registration.Token); err != nil {
 		return err
 	}
-	profile := clientconfig.Profile{Name: *profileName, ServerURL: *server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher}
+	profile := clientconfig.Profile{Name: profileName, ServerURL: server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher}
 	if err := store.SaveProfile(profile); err != nil {
 		return err
 	}
 	fmt.Printf("Registered agent %s (user %s) on %s.\nSaved private profile %q with workspace %q.\nConnect clients with: camp connect <client> --profile %s\n",
-		registration.AgentID, registration.UserID, *server, *profileName, registration.Workspace, *profileName)
+		registration.AgentID, registration.UserID, server, profileName, registration.Workspace, profileName)
 	return nil
 }
 

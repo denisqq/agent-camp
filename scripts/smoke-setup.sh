@@ -12,11 +12,12 @@ trap 'rm -rf "$work"; [[ -n "${server_pid:-}" ]] && kill "$server_pid" 2>/dev/nu
 
 export PATH="$PATH:/usr/local/go/bin"
 go build -o "$work/camp" ./cmd/camp
+go build -o "$work/camp-server" ./cmd/camp-server
 
 export CAMP_CONFIG="$work/server/camp.json"
 mkdir -p "$work/server"
-"$work/camp" setup server --open-registration >/dev/null
-CAMP_LISTEN="127.0.0.1:$port" "$work/camp" serve &
+"$work/camp-server" setup --open-registration >/dev/null
+CAMP_LISTEN="127.0.0.1:$port" "$work/camp-server" serve &
 server_pid=$!
 server="http://127.0.0.1:$port"
 for _ in $(seq 1 50); do
@@ -70,5 +71,5 @@ laptop 1 doctor --profile second --write | grep -q "write/read check passed"
 # Legacy compatibility path still works: init → token → start/run write.
 export CAMP_CONFIG="$work/legacy/camp.json"
 mkdir -p "$work/legacy"
-CAMP_ROOT="$work/legacy/data" "$work/camp" init >/dev/null
+CAMP_ROOT="$work/legacy/data" "$work/camp-server" init >/dev/null
 echo "setup acceptance smoke passed"

@@ -14,11 +14,11 @@ func SDKHelp(topic string) map[string]any {
 		return map[string]any{
 			"sdk_version": "v1",
 			"contract": map[string]any{
-				"storage":    "write(path, content, kind, metadata) creates or updates a document; annotate(path, metadata) merges fields; patch(path, old, new) edits text. Reuse the same path to keep identity and immutable history.",
-				"structure":  "You own the tree: choose any paths and kinds. kind=section marks a directory page (metadata.access controls subtree sharing); other kinds are yours to invent. link(path, target, relation) connects records; map() shows the layout.",
+				"storage":     "write(path, content, kind, metadata) creates or updates a document; annotate(path, metadata) merges fields; patch(path, old, new) edits text. Reuse the same path to keep identity and immutable history.",
+				"structure":   "You own the tree: choose any paths and kinds. kind=section marks a directory page (metadata.access controls subtree sharing); other kinds are yours to invent. link(path, target, relation) connects records; map() shows the layout.",
 				"discussions": "kind=message records (comment(path, text, to='agent') is the helper) with metadata.to=<subject> form agent-to-agent threads; keep one discussion per path under /discussions/... . Agents poll what is new since their previous snapshot.",
-				"history":    "history(path) lists revisions; revert(path, revision) restores old content as a new version; diff(path) previews staged changes before commit.",
-				"example":    "from camp_sdk import camp\ncamp.write('/experiments/short-posts', 'Tried short posts for a week', kind='experiment', metadata={'outcome': 'success', 'measured': True})",
+				"history":     "history(path) lists revisions; revert(path, revision) restores old content as a new version; diff(path) previews staged changes before commit.",
+				"example":     "from camp_sdk import camp\ncamp.write('/experiments/short-posts', 'Tried short posts for a week', kind='experiment', metadata={'outcome': 'success', 'measured': True})",
 			},
 		}
 	}

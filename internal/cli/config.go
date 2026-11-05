@@ -31,11 +31,12 @@ func printConfig(cfg config.Config) error {
 	return nil
 }
 
-// configPath picks the configuration file: an explicit CAMP_CONFIG, a
-// camp.json in the working directory, or the OS user configuration
-// directory. When none exists, loadConfig falls back to pure defaults so
-// the historical environment-variable workflow keeps working unchanged.
-func configPath() string {
+// configPath picks the configuration file. When none exists, loadConfig
+// falls back to pure defaults rooted at the working directory so the
+// historical environment-variable workflow keeps working unchanged.
+func configPath() string { return config.DiscoverPath() }
+
+func unusedConfigPath() string {
 	if p := os.Getenv("CAMP_CONFIG"); p != "" {
 		return p
 	}

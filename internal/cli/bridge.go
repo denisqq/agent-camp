@@ -4,17 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/spf13/cobra"
 )
 
 // camp bridge is the stdio adapter clients spawn: it reads the credential
@@ -22,27 +19,35 @@ import (
 // CAMP_TOKEN), connects to the profile's HTTP server, and forwards the
 // server's MCP surface. Remote profiles never start or fall back to a
 // local server. Stdio carries only MCP protocol — logs go to stderr.
-func bridge(args []string) error {
-	flags := flag.NewFlagSet("bridge", flag.ContinueOnError)
-	profileName := flags.String("profile", "local", "private profile name")
-	if err := flags.Parse(args); err != nil {
-		return err
+// bridgeCmd is the stdio MCP adapter clients spawn.
+func bridgeCmd() *cobra.Command {
+	var profileName string
+	c := &cobra.Command{
+		Use:   "bridge",
+		Short: "stdio MCP bridge to the profile's server (clients spawn this)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			return bridgeRun(ctx, profileName)
+		},
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	c.Flags().StringVar(&profileName, "profile", "local", "private profile name")
+	return c
+}
+
+func bridgeRun(ctx context.Context, profileName string) error {
 
 	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-	profile, err := store.LoadProfile(*profileName)
+	profile, err := store.LoadProfile(profileName)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("no camp profile %q; run camp register or camp setup first", *profileName)
+			return fmt.Errorf("no camp profile %q; run camp register or camp setup first", profileName)
 		}
 		return err
 	}
 	token := ""
 	if profile.CredentialRef != "" {
 		if token, err = store.LoadCredential(profile.CredentialRef); err != nil {
-			return fmt.Errorf("credential for profile %q is unavailable: %w", *profileName, err)
+			return fmt.Errorf("credential for profile %q is unavailable: %w", profileName, err)
 		}
 	}
 	endpoint := strings.TrimSuffix(profile.ServerURL, "/") + "/mcp"
@@ -97,14 +102,4 @@ func (t bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Header.Set("Authorization", "Bearer "+t.token)
 	}
 	return http.DefaultTransport.RoundTrip(r)
-}
-
-// absoluteLauncher returns the absolute path of the running camp binary so
-// client configs work without a shell PATH.
-func absoluteLauncher() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Abs(exe)
 }

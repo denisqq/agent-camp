@@ -140,12 +140,19 @@ func run(ctx context.Context, o Options, profiles clientconfig.Store) (Result, e
 		st.Server = o.Server
 	}
 
-	// Stage 2: identity. Reuse the saved credential; otherwise register.
-	// No token or role prompt exists on this path.
+	// Stage 2: identity. Reuse the saved agent credential; for a local
+	// instance fall back to the privately stored administrator credential,
+	// which provisions agents under the instance owner. No token or role
+	// prompt exists on this path.
 	token := ""
 	if st.CredentialRef != "" {
 		if saved, err := profiles.LoadCredential(st.CredentialRef); err == nil {
 			token = saved
+		}
+	}
+	if token == "" {
+		if admin, err := profiles.LoadCredential("server-admin"); err == nil {
+			token = admin
 		}
 	}
 	if st.AgentID == "" || token == "" {

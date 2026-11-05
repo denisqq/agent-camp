@@ -1,9 +1,9 @@
 package camp
 
 import (
-	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"testing"
 )
 
@@ -49,6 +49,6 @@ func TestChangesetConflictHistoryAndRecovery(t *testing.T) {
 		t.Fatalf("stable id: %+v %v", rec, err)
 	}
 	if record, err := s.RecordByPath(ctx, accepted, "/goals/growth"); err != nil || record.Revision != "r1" {
-        t.Fatal("old snapshot changed", err)
-    }
+		t.Fatal("old snapshot changed", err)
+	}
 }

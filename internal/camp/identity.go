@@ -50,3 +50,9 @@ type IdentityStore interface {
 	Agent(ctx context.Context, id string) (Agent, error)
 	AgentsByOwner(ctx context.Context, userID string) ([]Agent, error)
 }
+
+// OwnerUserID is the Camp-local user that owns a personal instance.
+// Local setup (which holds the administrator credential) registers its
+// agents under this user; remote self-registration never claims it
+// without that credential.
+const OwnerUserID = "user-owner"

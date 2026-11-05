@@ -2,13 +2,10 @@ package cli
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/spf13/cobra"
 )
 
 // camp connect installs the camp integration into a specific agent client:
@@ -16,51 +13,43 @@ import (
 // never overwritten: other MCP servers and unrelated settings survive, and
 // each install replaces only Camp-owned entries. --print shows the config
 // instead of writing it.
-func connect(args []string) error {
-	// Reorder so flags may come after the client name: camp connect codex --print.
-	flagsFirst := make([]string, 0, len(args))
-	rest := make([]string, 0, len(args))
-	for _, a := range args {
-		if strings.HasPrefix(a, "-") {
-			flagsFirst = append(flagsFirst, a)
-		} else {
-			rest = append(rest, a)
-		}
+// connectCmd installs the Camp integration into one agent client.
+func connectCmd() *cobra.Command {
+	var url, profileName, name string
+	var printOnly bool
+	c := &cobra.Command{
+		Use:   "connect <claude-code|claude-desktop|codex|cursor|generic>",
+		Short: "Install the Camp MCP bridge and workflow skill into a client",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return connectRun(args[0], url, profileName, name, printOnly)
+		},
 	}
-	args = append(flagsFirst, rest...)
-	flags := flag.NewFlagSet("connect", flag.ContinueOnError)
-	url := flags.String("url", env("CAMP_MCP_URL", "http://127.0.0.1:8090"), "camp server URL")
-	profileName := flags.String("profile", "local", "private profile name")
-	name := flags.String("name", "agent-camp", "server name in client configs")
-	printOnly := flags.Bool("print", false, "print config instead of installing")
-	if err := flags.Parse(args); err != nil {
-		return err
-	}
-	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: camp connect <claude-code|claude-desktop|codex|cursor|generic> [--print]")
-	}
+	c.Flags().StringVar(&url, "url", env("CAMP_MCP_URL", "http://127.0.0.1:8090"), "camp server URL")
+	c.Flags().StringVar(&profileName, "profile", "local", "private profile name")
+	c.Flags().StringVar(&name, "name", "agent-camp", "server name in client configs")
+	c.Flags().BoolVar(&printOnly, "print", false, "print config instead of installing")
+	return c
+}
 
-	launcher, err := os.Executable()
+func connectRun(clientKey, url, profileName, name string, printOnly bool) error {
+	launcher, err := absoluteLauncher()
 	if err != nil {
 		return err
 	}
-	launcher, err = filepath.Abs(launcher)
-	if err != nil {
-		return err
-	}
-	profile := clientconfig.Profile{Name: *profileName, ServerURL: *url, CredentialRef: "profile-" + *profileName, Launcher: launcher}
+	profile := clientconfig.Profile{Name: profileName, ServerURL: url, CredentialRef: "profile-" + profileName, Launcher: launcher}
 
-	if *printOnly || flags.Arg(0) == "generic" {
+	if printOnly || clientKey == "generic" {
 		entry := map[string]any{"mcpServers": map[string]any{
-			*name: map[string]any{"type": "stdio", "command": launcher, "args": []string{"bridge", "--profile", profile.Name}},
+			name: map[string]any{"type": "stdio", "command": launcher, "args": []string{"bridge", "--profile", profile.Name}},
 		}}
 		b, _ := json.MarshalIndent(entry, "", "  ")
 		fmt.Println(string(b))
 		return nil
 	}
 
-	client := clientconfig.Client{Key: flags.Arg(0)}
-	result, err := clientconfig.Install(client, clientconfig.Scope{}, profile, *name)
+	client := clientconfig.Client{Key: clientKey}
+	result, err := clientconfig.Install(client, clientconfig.Scope{}, profile, name)
 	if err != nil {
 		return err
 	}

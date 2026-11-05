@@ -1,9 +1,9 @@
 package filestore
 
 import (
-	"github.com/denisqq/agent-camp/internal/objectstore"
 	"context"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/objectstore"
 	"testing"
 )
 

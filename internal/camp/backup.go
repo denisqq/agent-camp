@@ -2,10 +2,10 @@ package camp
 
 import (
 	"archive/tar"
-	"github.com/denisqq/agent-camp/internal/objectstore"
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/objectstore"
 	"io"
 	"strings"
 )

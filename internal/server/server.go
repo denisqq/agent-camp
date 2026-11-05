@@ -121,6 +121,12 @@ func (e *Engine) Bootstrap(ctx context.Context, adminToken string, starterWorksp
 	spaces := []camp.Space{{ID: "shared", Kind: "shared", Owner: "system"}}
 	if starterWorkspace {
 		spaces = append(spaces, camp.Space{ID: e.cfg.Registration.StarterWorkspace, Kind: "team", Owner: "system"})
+		// The instance owner: local setup provisions its agents under this
+		// user with the administrator credential, without ever opening
+		// remote self-registration.
+		if err := e.Ctl.CreateUser(ctx, camp.User{ID: camp.OwnerUserID, DisplayName: "owner", CreatedAt: time.Now().UTC()}); err != nil && !errors.Is(err, camp.ErrConflict) {
+			return err
+		}
 	}
 	for _, space := range spaces {
 		if _, err := e.Store.CreateSpace(ctx, space); err != nil && !errors.Is(err, camp.ErrConflict) {
