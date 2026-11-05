@@ -14,9 +14,9 @@ import (
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
 	"github.com/denisqq/agent-camp/internal/config"
-	"github.com/denisqq/agent-camp/internal/localservice"
+	"github.com/denisqq/agent-camp/internal/installer/localservice"
 	"github.com/denisqq/agent-camp/internal/server"
-	"github.com/denisqq/agent-camp/internal/setup"
+	"github.com/denisqq/agent-camp/internal/installer/setup"
 	"github.com/spf13/cobra"
 )
 

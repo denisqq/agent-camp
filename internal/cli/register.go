@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/denisqq/agent-camp/internal/clientconfig"
-	"github.com/denisqq/agent-camp/internal/setup"
+	"github.com/denisqq/agent-camp/internal/installer/setup"
 	"github.com/spf13/cobra"
 )
 
