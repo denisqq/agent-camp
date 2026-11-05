@@ -75,6 +75,7 @@ func register(args []string) error {
 	client := flags.String("client", "", "optional client label, e.g. codex")
 	profileName := flags.String("profile", "", "profile name to save (defaults to a name derived from the server)")
 	token := flags.String("token", "", "existing credential to register under (default: private profile credential)")
+	asProfile := flags.String("as", "", "register under the user of this saved profile (uses its private credential)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -86,6 +87,14 @@ func register(args []string) error {
 		*profileName = profileFromServer(*server)
 	}
 
+	if *token == "" && *asProfile != "" {
+		store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
+		if profile, err := store.LoadProfile(*asProfile); err == nil && profile.CredentialRef != "" {
+			if saved, err := store.LoadCredential(profile.CredentialRef); err == nil {
+				*token = saved
+			}
+		}
+	}
 	if *token == "" {
 		store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
 		if profile, err := store.LoadProfile(*profileName); err == nil && profile.CredentialRef != "" {

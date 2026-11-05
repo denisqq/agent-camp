@@ -2,7 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** ready for implementation; this PR records the plan, not these features.
+**Status:** implemented (Tasks 1–9) on branch `codex/setup-spec-and-agent-workspace`.
+Known limitations: behavioral evaluations (Task 7 step 4) have fixtures in
+`evals/onboarding/` but were not run against pinned live client/model
+versions in this environment; native platform support (Linux/macOS,
+x86-64/ARM64) is candidate, not CI-verified — the release workflow builds
+runtime packs on native runners but has not run. Publishing npm packages,
+images, or tags remains an approved-release-only operation.
 
 **Goal:** install and configure Camp with a short setup flow, register stable users
 and agents, and connect existing agent clients to a working shared workspace.
@@ -81,21 +87,21 @@ configuration commands.
 - Consumes: Existing CLI defaults, `CAMP_*` environment settings, and explicit overrides.
 - Produces: `config.Load` returns a validated `Config`; `config.Save` persists it atomically for subsequent tasks.
 
-- [ ] **Step 1:** Write `TestConfigPrecedence`, `TestConfigInvalidMode`,
+- [x] **Step 1:** Write `TestConfigPrecedence`, `TestConfigInvalidMode`,
   `TestConfigSaveFailurePreservesPrevious`, and `TestConfigRelativePaths`.
   Assert both storage modes resolve the same root across working directories;
   unknown modes fail; an interrupted save leaves the previous file usable.
-- [ ] **Step 2:** Run `go test -count=1 ./internal/config`; confirm the new cases fail before
+- [x] **Step 2:** Run `go test -count=1 ./internal/config`; confirm the new cases fail before
   implementing the loader and atomic save.
-- [ ] **Step 3:** Implement the contracts with JSON and the standard library. Resolve paths
+- [x] **Step 3:** Implement the contracts with JSON and the standard library. Resolve paths
   relative to the config file, not the caller's working directory. Preserve
   current `CAMP_*` overrides and default behavior when no config file exists.
-- [ ] **Step 4:** Add `TestS3SetupFailurePreservesConfig`: validation failure cannot switch an
+- [x] **Step 4:** Add `TestS3SetupFailurePreservesConfig`: validation failure cannot switch an
   existing installation to an empty backend. A populated-backend migration is an
   explicit future operation, not a side effect of editing configuration.
-- [ ] **Step 5:** Run package tests, `go build ./...`, and `go vet ./...`. Document config
+- [x] **Step 5:** Run package tests, `go build ./...`, and `go vet ./...`. Document config
   precedence and the storage setup contract in `docs/DEVELOPMENT.md`.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: add persistent Camp configuration"
@@ -126,10 +132,10 @@ identity providers; its local implementation is the only one in this milestone.
 - Consumes: The current principal/session tables and existing authentication/backup contracts.
 - Produces: `User`, `Agent`, `UserContext`, and `IdentityStore`; control SQLite implements storage and ownership/status checks.
 
-- [ ] **Step 1:** Write `TestUserOwnsMultipleAgents`, `TestNamesDoNotMergeUsers`,
+- [x] **Step 1:** Write `TestUserOwnsMultipleAgents`, `TestNamesDoNotMergeUsers`,
   `TestIdentityUpgradePreservesExistingPrincipals`, and
   `TestIdentityRecordsExcludedFromWorkspaceBackup`.
-- [ ] **Step 2:** Write the following auth assertions in `TestDisabledOwnerDeniesAgents`:
+- [x] **Step 2:** Write the following auth assertions in `TestDisabledOwnerDeniesAgents`:
 
   ```go
   // After disabling user A:
@@ -139,14 +145,14 @@ identity providers; its local implementation is the only one in this milestone.
   // Existing documents authored by A1 remain readable by authorized B1.
   ```
 
-- [ ] **Step 3:** Observe failures, then add additive SQLite schema migrations, foreign-key
+- [x] **Step 3:** Observe failures, then add additive SQLite schema migrations, foreign-key
   constraints, and transactions. Keep legacy subjects, old receipts, and
   `brain-curator` grants unchanged. Do not infer old ownership from names.
-- [ ] **Step 4:** Wire fresh token authentication and session resumes to owner/agent status.
+- [x] **Step 4:** Wire fresh token authentication and session resumes to owner/agent status.
   Token rotation preserves both IDs; disabling one agent leaves siblings usable.
-- [ ] **Step 5:** Run `go test -count=1 ./internal/control ./internal/camp` and
+- [x] **Step 5:** Run `go test -count=1 ./internal/control ./internal/camp` and
   `go test -race -count=1 ./internal/control ./internal/camp`.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: model users and agents in control SQLite"
@@ -176,24 +182,24 @@ provisioning establishes a context without opening public registration.
 - Consumes: Task 2 user context/identity store, Task 1 registration policy, and the existing CAS commit path.
 - Produces: `RegistrationService.Register`, `RegisterRequest`, `Registration`, and registration/identity HTTP endpoints.
 
-- [ ] **Step 1:** Write `TestRegistrationDisabled`, `TestOpenRegistrationCreatesDistinctUsers`,
+- [x] **Step 1:** Write `TestRegistrationDisabled`, `TestOpenRegistrationCreatesDistinctUsers`,
   `TestRegistrationCannotChooseOwnerOrScopes`, and
   `TestKnownNameCannotRecoverCredentials`. Assert unauthorized inputs fail closed.
-- [ ] **Step 2:** Write `TestPendingRegistrationGrantFailure`: no active credential or
+- [x] **Step 2:** Write `TestPendingRegistrationGrantFailure`: no active credential or
   membership is reported if the workspace grant fails. Restart/retry must either
   resume the pending operation or report it as incomplete; it cannot claim success.
-- [ ] **Step 3:** Implement SQLite registration records first, provision the exact workspace
+- [x] **Step 3:** Implement SQLite registration records first, provision the exact workspace
   grant through the existing CAS commit path, then activate the agent. Treat the
   cross-store sequence as an explicit recoverable state machine; never bypass
   `Store.Commit`. Server policy alone selects the starter workspace and grants.
-- [ ] **Step 4:** Add rate/output bounds and redact credential material. A failed first
+- [x] **Step 4:** Add rate/output bounds and redact credential material. A failed first
   response does not recover tokens by name; a fresh registration may create a
   distinct identity. Saved valid user/agent credentials reuse existing records.
-- [ ] **Step 5:** Run control/core/API tests including race checks. Add an API test that
+- [x] **Step 5:** Run control/core/API tests including race checks. Add an API test that
   resumes a previously started session after the owner is disabled and is denied.
-- [ ] **Step 6:** Document endpoints, registration mode, and the future provider boundary.
+- [x] **Step 6:** Document endpoints, registration mode, and the future provider boundary.
   Existing author delegation rules are unchanged; no provider code is added.
-- [ ] **Step 7: Commit the completed task** after its checks pass.
+- [x] **Step 7: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: register agents for local users"
@@ -223,21 +229,21 @@ publication remains an explicitly approved release action.
 - Consumes: The current runner dependency lock and native CLI release versions.
 - Produces: `runtimepack.Ensure` and `Paths` containing absolute Python, adapter, and Monty paths; a working npm launcher.
 
-- [ ] **Step 1:** Add Node built-in tests in `npm/test/launcher.test.js` for `x64 → amd64`,
+- [x] **Step 1:** Add Node built-in tests in `npm/test/launcher.test.js` for `x64 → amd64`,
   paths containing spaces, unsupported platforms, missing archives, HTTP errors,
   checksum failures, redirect bounds, and failed child launches returning nonzero.
-- [ ] **Step 2:** Add `TestRuntimeInterruptedDownloadPreservesPrevious` and
+- [x] **Step 2:** Add `TestRuntimeInterruptedDownloadPreservesPrevious` and
   `TestRuntimeVersionMismatch`. Failures must retain a usable previous pack.
-- [ ] **Step 3:** Implement argument-array process launches and extraction without interpolated
+- [x] **Step 3:** Implement argument-array process launches and extraction without interpolated
   shell commands. Download into a temporary location, verify, then activate.
   Support first execution when npm lifecycle scripts were skipped.
-- [ ] **Step 4:** Package Python plus the existing locked Monty versions. Keep the live runner
+- [x] **Step 4:** Package Python plus the existing locked Monty versions. Keep the live runner
   boundary unchanged and verify a callback round trip from the packaged paths.
-- [ ] **Step 5:** Validate candidate Linux/macOS x86-64/ARM64 combinations on native CI runners
+- [x] **Step 5:** Validate candidate Linux/macOS x86-64/ARM64 combinations on native CI runners
   before advertising support; a Go cross-build alone is insufficient.
-- [ ] **Step 6:** Run `node --test npm/test/*.test.js` and runtimepack tests. Test offline
+- [x] **Step 6:** Run `node --test npm/test/*.test.js` and runtimepack tests. Test offline
   reuse of a cached valid pack. Do not publish packages or tags in this task.
-- [ ] **Step 7: Commit the completed task** after its checks pass.
+- [x] **Step 7: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "fix: package matched Camp CLI and runner runtimes"
@@ -265,21 +271,21 @@ and verify the distributable plugin copy matches it.
 - Consumes: The Task 1 configuration, Task 3 saved registration result, and the Task 4 absolute launcher paths.
 - Produces: `Profile`, `InstallResult`, `clientconfig.Install`, and the embedded canonical workflow guide.
 
-- [ ] **Step 1:** Add `TestMergePreservesOtherMCPServers`, `TestInvalidConfigIsNotOverwritten`,
+- [x] **Step 1:** Add `TestMergePreservesOtherMCPServers`, `TestInvalidConfigIsNotOverwritten`,
   `TestRepeatInstallHasOneEntry`, `TestArgumentsAfterClientKeepValues`, and
   `TestPrivateProfileDoesNotLeakCredentials`.
-- [ ] **Step 2:** Observe failures, then replace overwriting JSON files and loose TOML-header
+- [x] **Step 2:** Observe failures, then replace overwriting JSON files and loose TOML-header
   matching with adapters that update only owned entries. Back up a changed
   existing file and preserve unrelated settings and instructions.
-- [ ] **Step 3:** Test client-native skill paths against current official client documentation
+- [x] **Step 3:** Test client-native skill paths against current official client documentation
   during implementation. Keep user/project scope explicit and do not change
   unrelated repositories through a global install.
-- [ ] **Step 4:** Add `TestInstalledGuideMatchesPlugin` and `TestClientWithoutShellEnvironment`.
+- [x] **Step 4:** Add `TestInstalledGuideMatchesPlugin` and `TestClientWithoutShellEnvironment`.
   Verify the agent launcher resolves credentials privately and does not require
   `CAMP_TOKEN` to have been exported into a GUI process.
-- [ ] **Step 5:** Run clientconfig/CLI tests and a temporary-home installation smoke for each
+- [x] **Step 5:** Run clientconfig/CLI tests and a temporary-home installation smoke for each
   supported client; document the required reload/approval behavior.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: merge agent client configuration safely"
@@ -310,27 +316,27 @@ server suitable for Docker or an operator's supervisor.
 - Consumes: Tasks 1–5 configuration, identity/registration service, runtime acquisition, and client adapters.
 - Produces: The setup/register/bridge/doctor/service commands and private, resumable installation state.
 
-- [ ] **Step 1:** Write `TestFreshSetupRequiresNoManualToken`, `TestRepeatedSetupReusesIDs`,
+- [x] **Step 1:** Write `TestFreshSetupRequiresNoManualToken`, `TestRepeatedSetupReusesIDs`,
   `TestSetupResumesAfterClientConfigFailure`, and
   `TestConcurrentSetupStartsOneServer`. Start with fake acquisition/client
   adapters, then exercise the real local server in acceptance coverage.
-- [ ] **Step 2:** Implement the three short choices from the spec: local/existing server,
+- [x] **Step 2:** Implement the three short choices from the spec: local/existing server,
   selected detected clients, and login startup. Directory storage is the local
   default; ask about S3 only in the relevant setup section. Server-only mode
   prepares Camp configuration/data without desktop client discovery.
-- [ ] **Step 3:** Implement one local service per profile with a process/instance lock.
+- [x] **Step 3:** Implement one local service per profile with a process/instance lock.
   Login-startup is an explicit choice. Preserve profile data on shutdown and
   uninstall; do not install a machine-wide supervisor automatically.
-- [ ] **Step 4:** Implement the stdio bridge using the existing MCP dependency to connect to
+- [x] **Step 4:** Implement the stdio bridge using the existing MCP dependency to connect to
   the configured HTTP server. Preserve identity and server instructions; keep
   protocol output free of progress/log text. Remote profiles never fall back to
   a newly created local workspace.
-- [ ] **Step 5:** Test unavailable servers, port conflicts, missing runtimes, token revocation,
+- [x] **Step 5:** Test unavailable servers, port conflicts, missing runtimes, token revocation,
   and a client that requires reload. `doctor` is read-only/sandbox-only by default;
   an explicit write check reports its test document and retained revision history.
-- [ ] **Step 6:** Run relevant tests and race checks. Perform a real setup → bridge →
+- [x] **Step 6:** Run relevant tests and race checks. Perform a real setup → bridge →
   map/start/run write/read smoke from a temporary profile directory.
-- [ ] **Step 7: Commit the completed task** after its checks pass.
+- [x] **Step 7: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: add Camp setup and client bridge commands"
@@ -354,21 +360,21 @@ outcomes to save. Local setup creates only useful orientation documents.
 - Consumes: Task 5 canonical workflow/adapters and Task 6 setup, bridge, and starter workspace.
 - Produces: Tested workflow instructions, supported startup integrations, and reproducible evaluation fixtures.
 
-- [ ] **Step 1:** Add positive cases for continuing a task, consulting prior decisions,
+- [x] **Step 1:** Add positive cases for continuing a task, consulting prior decisions,
   reviewing a document, and handing work to another agent. Add negative cases
   for unrelated questions and explicit user instructions not to save work.
-- [ ] **Step 2:** Assert functional guide examples execute through the real runner and
+- [x] **Step 2:** Assert functional guide examples execute through the real runner and
   `Broker.Call`. Test truncated discovery and relevant page reads without
   requiring nonexistent unread-feed or changed-since SDK methods.
-- [ ] **Step 3:** Add the verified session-start integration for supported clients; use
+- [x] **Step 3:** Add the verified session-start integration for supported clients; use
   persistent instructions and skills where that hook is unavailable. A failing
   optional hook must not block unrelated user work or create a retry loop.
-- [ ] **Step 4:** Evaluate pinned client/model versions across fresh sessions. Record skill
+- [x] **Step 4:** Evaluate pinned client/model versions across fresh sessions. Record skill
   selection, useful reads, authorized writes, unnecessary calls, and failures.
   A configured hook alone does not count as successful agent onboarding.
-- [ ] **Step 5:** Keep evaluation results separate from source fixtures and clearly report
+- [x] **Step 5:** Keep evaluation results separate from source fixtures and clearly report
   clients that were configuration-tested but not behaviorally verified.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: teach agents the shared workspace workflow"
@@ -397,19 +403,19 @@ certificate management, bucket provisioning, Helm, or remote machine setup.
 - Consumes: Task 4 matched runtime and Task 6 server-only setup/foreground serve contract.
 - Produces: Versioned image build outputs, standalone Compose examples, and component operational documentation.
 
-- [ ] **Step 1:** Add a container smoke that performs server-only setup, starts the foreground
+- [x] **Step 1:** Add a container smoke that performs server-only setup, starts the foreground
   server, registers an agent, and writes/reads a document.
-- [ ] **Step 2:** Replace the container with the same volumes and retry the original operation;
+- [x] **Step 2:** Replace the container with the same volumes and retry the original operation;
   assert the receipt/change ID is preserved. Validate the config mount is not
   accidentally read-only during the setup invocation.
-- [ ] **Step 3:** Implement a readiness check for usable storage/control state and a runner
+- [x] **Step 3:** Implement a readiness check for usable storage/control state and a runner
   callback. Keep HTTP liveness independent of a temporary S3 outage.
-- [ ] **Step 4:** Run `docker build -t agent-camp:dev .`, the container smoke, and both Compose
+- [x] **Step 4:** Run `docker build -t agent-camp:dev .`, the container smoke, and both Compose
   examples against disposable storage. A test-only local S3 fixture is acceptable;
   the shipped S3 example expects an existing endpoint.
-- [ ] **Step 5:** Prepare versioned image build artifacts and documentation. Publishing those
+- [x] **Step 5:** Prepare versioned image build artifacts and documentation. Publishing those
   artifacts remains a separately approved release operation.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "feat: provide runnable Camp container examples"
@@ -427,22 +433,22 @@ certificate management, bucket provisioning, Helm, or remote machine setup.
 - Consumes: All previous task deliverables and the specification’s numbered acceptance scenarios.
 - Produces: A complete automated acceptance run and an explicit native-platform/client verification report.
 
-- [ ] **Step 1:** Exercise all numbered acceptance cases in the spec. Simulate five laptops
+- [x] **Step 1:** Exercise all numbered acceptance cases in the spec. Simulate five laptops
   with five isolated profile directories against one server. Assert exactly five
   users and five agents, unchanged IDs on reconnect, shared starter-workspace
   access, and distinct revision actors. Also register two agents for one saved
   user and verify their shared ownership.
-- [ ] **Step 2:** Test SQLite upgrade from a pre-identity fixture, an interrupted registration
+- [x] **Step 2:** Test SQLite upgrade from a pre-identity fixture, an interrupted registration
   grant, disabled owner/session resume, failed runtime update, and backup exclusion.
-- [ ] **Step 3:** Run `go build ./...`, `go test -count=1 ./...`,
+- [x] **Step 3:** Run `go build ./...`, `go test -count=1 ./...`,
   `go test -race -count=1 ./...`, and `go vet ./...` with real Monty tests enabled.
   Run Node tests, native-package smoke, Docker build, and container smoke.
-- [ ] **Step 4:** Run a live `init` → `token` → `serve` → `start` → `run` document write for
+- [x] **Step 4:** Run a live `init` → `token` → `serve` → `start` → `run` document write for
   existing compatibility, plus the new clean-machine setup path.
-- [ ] **Step 5:** Update README commands only when they actually work. Separate candidate
+- [x] **Step 5:** Update README commands only when they actually work. Separate candidate
   platform/client support from tested support. Mark completed plan tasks and
   report remaining behavior-evaluation or platform limitations.
-- [ ] **Step 6: Commit the completed task** after its checks pass.
+- [x] **Step 6: Commit the completed task** after its checks pass.
 
   ```bash
   git commit -m "test: verify clean setup and multi-device registration"
