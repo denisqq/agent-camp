@@ -41,6 +41,17 @@ After runner or Docker dependency changes:
 docker build -t agent-camp:dev .
 ```
 
+The full container path (setup server → serve → register → write/read →
+replace container with the same volumes) is exercised by:
+
+```bash
+scripts/smoke-container.sh
+```
+
+Published-image Compose examples live in `examples/compose/` (directory
+storage and S3); publishing the versioned images themselves is a release
+operation requiring approval.
+
 For a live write through the server, follow the [quickstart](../README.md#quickstart).
 The runner executable paths must be absolute.
 

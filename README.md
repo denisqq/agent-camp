@@ -165,18 +165,29 @@ The [logical model](docs/MODEL.md) describes the exact concurrency rules.
 Both modes use the same workspace format. Tokens, sessions, and receipts live in
 separate SQLite control storage and are excluded from workspace backups.
 
-For Docker, set an admin token and start the local service:
+For Docker, configure the server once and keep it running:
 
 ```bash
-export CAMP_ADMIN_TOKEN="$(openssl rand -hex 32)"
-docker compose up -d camp
+docker compose -f examples/compose/local.yaml pull
+docker compose -f examples/compose/local.yaml run --rm camp setup server
+docker compose -f examples/compose/local.yaml up -d
 ```
 
-The local configuration is in [docker-compose.yml](docker-compose.yml). For
-self-hosted S3, set `CAMP_S3_SECRET_KEY` and use
-`docker compose -f docker-compose.s3.yml up -d`; see the separate
-[S3 example](docker-compose.s3.yml) for its configuration. [Architecture](docs/ARCHITECTURE.md) describes the deployment and
+The example mounts the same persistent configuration and data for both
+`setup server` and the running service; the S3 variant lives in
+[examples/compose/s3.yaml](examples/compose/s3.yaml) against an existing
+S3 endpoint. The development compose files ([docker-compose.yml](docker-compose.yml),
+[docker-compose.s3.yml](docker-compose.s3.yml)) build from source.
+[Architecture](docs/ARCHITECTURE.md) describes the deployment and
 storage boundaries.
+
+Operational contract for deployments: the component listens on its
+configured address (8090 by default), reads `CAMP_CONFIG` (or the user
+configuration directory), and needs durable storage for workspace objects
+and the control SQLite file — the search index is rebuildable. `/health`
+reports HTTP liveness; `/ready` checks storage and control state for a
+process manager. One active server process per instance, even with S3
+workspace storage: control state is not shared across replicas.
 
 ## Development
 

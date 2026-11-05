@@ -137,7 +137,7 @@ func writeCheck(server, token string) error {
 		return fmt.Errorf("start: %d %s", status, raw)
 	}
 	var started struct {
-		ID string `json:"id"`
+		ID string `json:"session_id"`
 	}
 	if err := json.Unmarshal(raw, &started); err != nil || started.ID == "" {
 		return fmt.Errorf("start response missing session id")

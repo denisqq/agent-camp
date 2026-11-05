@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 image="agent-camp:smoke"
-port="1$((20000 + RANDOM % 20000))"
+port="$((20000 + RANDOM % 20000))"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"; docker rm -f camp-smoke >/dev/null 2>&1 || true' EXIT
 mkdir -p "$work/config" "$work/data" "$work/home"
