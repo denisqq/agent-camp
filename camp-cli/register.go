@@ -1,4 +1,4 @@
-package cli
+package campcli
 
 import (
 	"bytes"

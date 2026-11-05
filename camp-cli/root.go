@@ -2,7 +2,7 @@
 // (setup, register, bridge, doctor, connect) and local-service
 // management (status, up, down). The server runtime ships separately in
 // the camp-server binary; this one finds it next to its own executable.
-package cli
+package campcli
 
 import (
 	"fmt"

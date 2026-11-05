@@ -137,7 +137,7 @@ Claude Code users can also install the plugin:
 /plugin install agent-camp
 ```
 
-The [npm wrapper](npm/package.json) distributes the CLI as `agent-camp`.
+The [npm launcher](installer/npm/package.json) (under `installer/` with the Go installer packages) distributes the CLI as `agent-camp`.
 The Python runner is configured separately when running from the CLI.
 
 ## Reliable collaboration

@@ -3,6 +3,6 @@
 // under a process manager; the onboarding CLI ships as camp.
 package main
 
-import "github.com/denisqq/agent-camp/internal/server/cmd"
+import "github.com/denisqq/agent-camp/camp-server"
 
-func main() { servercmd.Execute() }
+func main() { campserver.Execute() }

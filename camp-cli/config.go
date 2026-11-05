@@ -1,4 +1,4 @@
-package cli
+package campcli
 
 import (
 	"encoding/json"

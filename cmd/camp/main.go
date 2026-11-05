@@ -2,6 +2,6 @@
 // and local service management. The server runtime ships as camp-server.
 package main
 
-import "github.com/denisqq/agent-camp/internal/cli"
+import "github.com/denisqq/agent-camp/camp-cli"
 
-func main() { cli.Execute() }
+func main() { campcli.Execute() }

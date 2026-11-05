@@ -3,7 +3,7 @@
 // server-only setup). It shares internal/server with the client binary
 // but ships as its own artifact for deployments that run Camp as a
 // service without the onboarding CLI.
-package servercmd
+package campserver
 
 import (
 	"crypto/rand"

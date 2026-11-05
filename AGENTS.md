@@ -44,12 +44,13 @@ just <recipe>                      # see justfile
 | `runner/camp_runner.py` | the sandbox: Monty process + `camp_sdk` exposed to agent code |
 | `internal/api` | HTTP `/v1` + MCP server (map/start/run) |
 | `internal/server` | server runtime: engine wiring, serve/mcp/index, bootstrap |
-| `internal/cli` | the camp client command line: setup/register/bridge/doctor/connect, status/up/down (cobra) |
-| `internal/servercmd` | the camp-server command line: serve/mcp/init/token/backup/setup (cobra) |
-| `cmd/camp`, `cmd/camp-server` | thin entry points; logic lives in internal/cli and internal/server/cmd |
+| `camp-cli` | the camp client command line (cobra): setup/register/bridge/doctor/connect, status/up/down |
+| `camp-server` | the camp-server command line (cobra): serve/mcp/init/token/backup/setup |
+| `installer/` | Go installer: `setup` (onboarding orchestration), `localservice` (child camp-server management), `runtimepack` (verified server runtime packs); `installer/npm` is the npm launcher |
+| `cmd/camp`, `cmd/camp-server` | thin entry points into camp-cli and camp-server |
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
-| `npm/` | npm wrapper (downloads release binaries) |
+
 | `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml` | pinned Trail-code MCP settings for source navigation |
 | `docs/INDEXING.md`, `docs/DEVELOPMENT.md` | local code index, runtime tests, and development setup |
 
