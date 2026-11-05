@@ -13,12 +13,12 @@ import (
 // are never part of the file, only referenced by name.
 func printConfig(cfg config.Config) error {
 	out := struct {
-		SchemaVersion int               `json:"schema_version"`
-		Path          string            `json:"path"`
-		Listen        string            `json:"listen"`
-		Storage       config.Storage    `json:"storage"`
-		ControlPath   string            `json:"control_path"`
-		IndexPath     string            `json:"index_path"`
+		SchemaVersion int                 `json:"schema_version"`
+		Path          string              `json:"path"`
+		Listen        string              `json:"listen"`
+		Storage       config.Storage      `json:"storage"`
+		ControlPath   string              `json:"control_path"`
+		IndexPath     string              `json:"index_path"`
 		Registration  config.Registration `json:"registration"`
 	}{cfg.SchemaVersion, cfg.Path, cfg.Listen, cfg.Storage, cfg.ControlPath, cfg.IndexPath, cfg.Registration}
 	out.Storage.AccessKey, out.Storage.SecretKey = "", ""

@@ -71,7 +71,7 @@ func openStore(ctx context.Context, cfg config.Config) (objectstore.Store, error
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: camp init|serve|mcp|token|connect|index|backup|restore|config")
+		return errors.New("usage: camp setup|register|bridge|doctor|status|up|down|init|serve|mcp|token|connect|index|backup|restore|config")
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -97,6 +97,20 @@ func run() error {
 	auth := camp.NewAuth(ctl)
 	auth.Identities = ctl
 	switch os.Args[1] {
+	case "setup":
+		return setupCommand(os.Args[2:])
+	case "register":
+		return register(os.Args[2:])
+	case "bridge":
+		return bridge(os.Args[2:])
+	case "doctor":
+		return doctor(os.Args[2:])
+	case "status":
+		return statusCommand(os.Args[2:])
+	case "up":
+		return upCommand(os.Args[2:])
+	case "down":
+		return downCommand(os.Args[2:])
 	case "init":
 		adminToken := os.Getenv("CAMP_ADMIN_TOKEN")
 		if adminToken == "" {
@@ -256,4 +270,40 @@ func envInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+// initEngine bootstraps an instance (admin credential + starter
+// workspace) through the same store/auth code path `camp init` uses, so
+// setup server and init cannot drift.
+func initEngine(cfg config.Config, adminToken string) error {
+	ctx := context.Background()
+	objects, err := openStore(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	store := camp.NewStore(objects)
+	ctl, err := control.Open(cfg.ControlPath)
+	if err != nil {
+		return err
+	}
+	defer ctl.Close()
+	auth := camp.NewAuth(ctl)
+	auth.Identities = ctl
+	if s3, ok := objects.(*objectstore.S3); ok {
+		if err = s3.EnsureBucket(ctx); err != nil {
+			return err
+		}
+	}
+	if err = auth.Bootstrap(ctx, adminToken); err != nil {
+		return err
+	}
+	for _, space := range []camp.Space{
+		{ID: "shared", Kind: "shared", Owner: "system"},
+		{ID: "workspace", Kind: "team", Owner: "system"},
+	} {
+		if _, err = store.CreateSpace(ctx, space); err != nil && !errors.Is(err, camp.ErrConflict) {
+			return err
+		}
+	}
+	return nil
 }
