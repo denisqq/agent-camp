@@ -10,10 +10,12 @@
 | [Agent guide](../AGENTS.md) | Repository map, commands, and required invariants. |
 | [Contributing](../CONTRIBUTING.md) | Workflow and review expectations. |
 
-## Product proposals
+## Superpowers design and implementation plans
 
-- [Deployment and agent onboarding](DEPLOYMENT-AND-ONBOARDING.md) — proposed local installation,
+See the [workflow artifact index](superpowers/README.md) for status and layout.
+
+- [Deployment and agent onboarding](superpowers/specs/2026-11-05-agent-camp-onboarding-design.md) — proposed local installation,
   Docker/VM operation, client integration, and default agent behavior.
 
-- [Setup implementation plan](IMPLEMENTATION-PLAN.md) — staged work, interfaces,
+- [Setup implementation plan](superpowers/plans/2026-11-05-agent-camp-onboarding.md) — staged work, interfaces,
   regression coverage, and acceptance checks for the agreed product scope.

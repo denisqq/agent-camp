@@ -1,10 +1,15 @@
-# Deployment and agent onboarding
+# Camp deployment and agent onboarding design
 
-Status: agreed product scope, 2026-11-05; implementation pending. Commands
-introduced here describe interfaces to implement and are not available in the
+**Status:** agreed product scope; implementation pending.
+
+**Date:** 2026-11-05.
+
+**Scope:** Camp installation, configuration, users, agent registration, and client onboarding.
+
+Commands introduced here describe interfaces to implement and are not available in the
 current CLI. Current working installation instructions remain in the
-[README](../README.md). The staged implementation is described in the
-[implementation plan](IMPLEMENTATION-PLAN.md).
+[README](../../../README.md). The staged implementation is described in the
+[implementation plan](../plans/2026-11-05-agent-camp-onboarding.md).
 
 ## Goal
 
