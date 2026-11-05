@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/denisqq/agent-camp/internal/api"
 	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/config"
 	"github.com/denisqq/agent-camp/internal/control"
 	"github.com/denisqq/agent-camp/internal/filestore"
 	"github.com/denisqq/agent-camp/internal/index"
@@ -31,6 +32,20 @@ func env(key, fallback string) string {
 	}
 	return fallback
 }
+
+// envAny returns the first non-empty value among the environment key and the
+// given fallbacks.
+func envAny(key string, fallbacks ...string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	for _, f := range fallbacks {
+		if f != "" {
+			return f
+		}
+	}
+	return ""
+}
 func main() {
 	if err := run(); err != nil {
 		slog.Error("camp stopped", "error", err)
@@ -41,34 +56,40 @@ func main() {
 // openStore selects the storage mode: a local directory by default, or S3 for
 // shared deployments. Both speak the same object contract and key layout, so
 // a camp can move between them by copying data.
-func openStore(ctx context.Context) (objectstore.Store, error) {
-	if env("CAMP_STORE", "file") == "s3" {
+func openStore(ctx context.Context, cfg config.Config) (objectstore.Store, error) {
+	if cfg.Storage.Mode == "s3" {
 		return objectstore.NewS3(ctx, objectstore.S3Config{
-			Endpoint:  os.Getenv("CAMP_S3_ENDPOINT"),
-			Region:    env("AWS_REGION", "us-east-1"),
-			Bucket:    env("CAMP_S3_BUCKET", "agent-camp"),
-			AccessKey: os.Getenv("AWS_ACCESS_KEY_ID"),
-			SecretKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+			Endpoint:  cfg.Storage.Endpoint,
+			Region:    envAny("AWS_REGION", cfg.Storage.Region, "us-east-1"),
+			Bucket:    envAny("CAMP_S3_BUCKET", cfg.Storage.Bucket, "agent-camp"),
+			AccessKey: env("AWS_ACCESS_KEY_ID", cfg.Storage.AccessKey),
+			SecretKey: env("AWS_SECRET_ACCESS_KEY", cfg.Storage.SecretKey),
 		})
 	}
-	return filestore.Open(env("CAMP_ROOT", "./camp-data/objects"))
+	return filestore.Open(cfg.Storage.Root)
 }
-func root() string { return env("CAMP_ROOT", "./camp-data") }
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: camp init|serve|mcp|token|connect|index|backup|restore")
+		return errors.New("usage: camp init|serve|mcp|token|connect|index|backup|restore|config")
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	objects, err := openStore(ctx)
+	cfg, err := loadConfig(config.Overrides{})
+	if err != nil {
+		return err
+	}
+	if os.Args[1] == "config" {
+		return printConfig(cfg)
+	}
+	objects, err := openStore(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	store := camp.NewStore(objects)
 	// The control plane (credentials, sessions, receipts) is operational
 	// state: its own SQLite file, never part of workspace memory.
-	ctl, err := control.Open(env("CAMP_CONTROL_PATH", filepath.Join(root(), "control.sqlite")))
+	ctl, err := control.Open(cfg.ControlPath)
 	if err != nil {
 		return err
 	}
@@ -95,7 +116,7 @@ func run() error {
 		if _, err = store.CreateSpace(ctx, camp.Space{ID: "shared", Kind: "shared", Owner: "system"}); err != nil && !errors.Is(err, camp.ErrConflict) {
 			return err
 		}
-		fmt.Printf("Camp initialized at %s\nAdmin token: %s\nStore it now: it is not saved anywhere else.\n", root(), adminToken)
+		fmt.Printf("Camp initialized at %s\nAdmin token: %s\nStore it now: it is not saved anywhere else.\n", cfg.DataRoot, adminToken)
 		return nil
 	case "token":
 		flags := flag.NewFlagSet("token", flag.ContinueOnError)
@@ -147,7 +168,7 @@ func run() error {
 	default:
 		return errors.New("unknown command")
 	}
-	indexPath := env("CAMP_INDEX_PATH", filepath.Join(root(), "index.sqlite"))
+	indexPath := cfg.IndexPath
 	if err = os.MkdirAll(filepath.Dir(indexPath), 0o700); err != nil {
 		return err
 	}
@@ -174,7 +195,7 @@ func run() error {
 	if os.Args[1] == "index" {
 		return syncIndex()
 	}
-	pool := runner.New(runner.Config{Python: env("CAMP_RUNNER_PYTHON", "./runner/.venv/bin/python"), Script: env("CAMP_RUNNER_SCRIPT", "./runner/camp_runner.py"), Monty: env("CAMP_MONTY_BINARY", "./runner/.venv/bin/monty"), Workers: envInt("CAMP_RUNNERS", 2)})
+	pool := runner.New(runner.Config{Python: cfg.RunnerPython, Script: cfg.RunnerScript, Monty: cfg.RunnerMonty, Workers: envInt("CAMP_RUNNERS", cfg.Runner)})
 	defer pool.Close()
 	broker := camp.NewBroker(store, auth)
 	broker.Search = idx
@@ -185,7 +206,7 @@ func run() error {
 		// Stdio mode for clients that spawn the server as a process.
 		return api.NewAPI(sessions).RunStdio(ctx)
 	}
-	server := &http.Server{Addr: env("CAMP_LISTEN", "127.0.0.1:8090"), Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	server := &http.Server{Addr: cfg.Listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Accepted commits push index syncs; the periodic pass is only a backstop
 	// for commits made outside this process (init, restore, CLI).
 	store.OnCommit = func(space string) {
@@ -217,7 +238,7 @@ func run() error {
 		defer done()
 		_ = server.Shutdown(shutdown)
 	}()
-	slog.Info("camp listening", "address", server.Addr, "store", env("CAMP_STORE", "file"))
+	slog.Info("camp listening", "address", server.Addr, "store", cfg.Storage.Mode)
 	err = server.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil

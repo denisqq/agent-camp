@@ -44,6 +44,30 @@ docker build -t agent-camp:dev .
 For a live write through the server, follow the [quickstart](../README.md#quickstart).
 The runner executable paths must be absolute.
 
+## Persistent configuration
+
+Camp resolves settings from a JSON configuration file: `$CAMP_CONFIG`, then
+`./camp.json` if present, then the OS user configuration directory
+(`~/.config/camp/camp.json` on Linux). When no file exists, the historical
+defaults rooted at the working directory apply, so existing `CAMP_*`
+workflows are unchanged.
+
+Precedence for each setting: defaults → configuration file → `CAMP_*`
+environment variables → CLI overrides. Paths inside the file resolve against
+the file's directory, not the caller's working directory. `camp config`
+prints the resolved configuration without secrets.
+
+`config.Save` validates before writing and replaces the file atomically
+(temporary sibling plus rename), so an interrupted or failing save leaves
+the previous working configuration intact. The file never holds secret
+material: S3 credentials live in private files referenced by
+`storage.credentials_ref`. Changing the storage backend of a populated
+workspace is an explicit future migration operation; a failed validation
+cannot silently switch an installation to an empty backend.
+
+See the [onboarding design](superpowers/specs/2026-11-05-agent-camp-onboarding-design.md)
+for the storage setup contract this serves.
+
 ## Sharing a team space
 
 Creating a space with `kind: "team"` does not grant every agent access. Its owner
