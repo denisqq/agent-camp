@@ -26,10 +26,21 @@ type Principal struct {
 	TokenHash  string    `json:"token_hash"`
 	ParentHash string    `json:"parent_hash,omitempty"`
 	Revoked    bool      `json:"revoked"`
+	// AgentID, when set, binds this credential to a managed agent record;
+	// authentication then also requires that agent and its owner to be
+	// active. Existing principals have no agent and keep their current
+	// checks unchanged.
+	AgentID string `json:"agent_id,omitempty"`
 }
-type Auth struct{ Principals PrincipalStore }
 
-func NewAuth(p PrincipalStore) *Auth      { return &Auth{p} }
+// Auth validates credentials. Principals is required; Identities is the
+// optional user/agent ownership store consulted for agent-bound tokens.
+type Auth struct {
+	Principals PrincipalStore
+	Identities IdentityStore
+}
+
+func NewAuth(p PrincipalStore) *Auth      { return &Auth{Principals: p} }
 func digest(s string) string              { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
 func contains(xs []string, x string) bool { return slices.Contains(xs, "*") || slices.Contains(xs, x) }
 
@@ -60,6 +71,9 @@ func (a *Auth) validate(ctx context.Context, hash string, depth int) (Principal,
 	if p.Revoked || !time.Now().Before(p.Expires) || p.TokenHash != hash {
 		return p, ErrDenied
 	}
+	if err := a.checkAgent(ctx, p); err != nil {
+		return p, ErrDenied
+	}
 	if p.ParentHash != "" {
 		parent, err := a.validate(ctx, p.ParentHash, depth+1)
 		if err != nil {
@@ -80,6 +94,24 @@ func (a *Auth) validate(ctx context.Context, hash string, depth int) (Principal,
 }
 func (a *Auth) Current(ctx context.Context, p Principal) (Principal, error) {
 	return a.validate(ctx, p.TokenHash, 0)
+}
+
+// checkAgent enforces active ownership for agent-bound credentials: a
+// disabled user denies all of that user's agents; a revoked agent denies
+// only itself. Principals without an agent binding are unaffected.
+func (a *Auth) checkAgent(ctx context.Context, p Principal) error {
+	if p.AgentID == "" || a.Identities == nil {
+		return nil
+	}
+	agent, err := a.Identities.Agent(ctx, p.AgentID)
+	if err != nil || agent.Status != "active" {
+		return ErrDenied
+	}
+	owner, err := a.Identities.User(ctx, agent.OwnerUserID)
+	if err != nil || owner.Disabled {
+		return ErrDenied
+	}
+	return nil
 }
 func (a *Auth) Issue(ctx context.Context, issuer Principal, p Principal) (string, error) {
 	issuer, err := a.Current(ctx, issuer)

@@ -13,6 +13,8 @@ type MemState struct {
 	principals map[string]Principal
 	sessions   map[string]memVersioned[SessionState]
 	executions map[string]memVersioned[ExecutionState]
+	users      map[string]User
+	agents     map[string]Agent
 }
 
 type memVersioned[T any] struct {
@@ -25,7 +27,84 @@ func NewMemState() *MemState {
 		principals: map[string]Principal{},
 		sessions:   map[string]memVersioned[SessionState]{},
 		executions: map[string]memVersioned[ExecutionState]{},
+		users:      map[string]User{},
+		agents:     map[string]Agent{},
 	}
+}
+
+// MemState also implements IdentityStore for tests and embedded use.
+
+func (m *MemState) CreateUser(ctx context.Context, u User) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.users[u.ID]; ok {
+		return ErrConflict
+	}
+	m.users[u.ID] = u
+	return nil
+}
+func (m *MemState) SaveUser(ctx context.Context, u User) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.users[u.ID]; !ok {
+		return ErrNotFound
+	}
+	m.users[u.ID] = u
+	return nil
+}
+func (m *MemState) User(ctx context.Context, id string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u, ok := m.users[id]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	return u, nil
+}
+func (m *MemState) CreateAgent(ctx context.Context, a Agent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.agents[a.ID]; ok {
+		return ErrConflict
+	}
+	if _, ok := m.users[a.OwnerUserID]; !ok {
+		return ErrInvalid
+	}
+	m.agents[a.ID] = a
+	return nil
+}
+func (m *MemState) SaveAgent(ctx context.Context, a Agent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, ok := m.agents[a.ID]
+	if !ok {
+		return ErrNotFound
+	}
+	if a.OwnerUserID != current.OwnerUserID {
+		return ErrInvalid // ownership is immutable
+	}
+	m.agents[a.ID] = a
+	return nil
+}
+func (m *MemState) Agent(ctx context.Context, id string) (Agent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	a, ok := m.agents[id]
+	if !ok {
+		return Agent{}, ErrNotFound
+	}
+	return a, nil
+}
+func (m *MemState) AgentsByOwner(ctx context.Context, userID string) ([]Agent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []Agent
+	for _, a := range m.agents {
+		if a.OwnerUserID == userID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
 }
 
 func (m *MemState) Principal(ctx context.Context, hash string) (Principal, error) {

@@ -26,10 +26,10 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	_, err = db.Exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
+	_, err = db.Exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS principals(hash TEXT PRIMARY KEY, principal TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, state TEXT NOT NULL, version INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS executions(key TEXT PRIMARY KEY, state TEXT NOT NULL, version INTEGER NOT NULL);`)
+CREATE TABLE IF NOT EXISTS executions(key TEXT PRIMARY KEY, state TEXT NOT NULL, version INTEGER NOT NULL);` + identitySchema)
 	if err != nil {
 		db.Close()
 		return nil, err
