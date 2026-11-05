@@ -9,7 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/denisqq/agent-camp/installer/profiles"
+	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
@@ -36,8 +37,8 @@ func bridgeCmd() *cobra.Command {
 
 func bridgeRun(ctx context.Context, profileName string) error {
 
-	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-	profile, err := store.LoadProfile(profileName)
+	profileStore := profiles.Store{Dir: profiles.DefaultDir()}
+	profile, err := profileStore.Load(profileName)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("no camp profile %q; run camp register or camp setup first", profileName)
@@ -46,7 +47,7 @@ func bridgeRun(ctx context.Context, profileName string) error {
 	}
 	token := ""
 	if profile.CredentialRef != "" {
-		if token, err = store.LoadCredential(profile.CredentialRef); err != nil {
+		if token, err = (credstore.Store{Dir: credstore.DefaultDir()}).Load(profile.CredentialRef); err != nil {
 			return fmt.Errorf("credential for profile %q is unavailable: %w", profileName, err)
 		}
 	}

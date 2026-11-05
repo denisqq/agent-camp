@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/denisqq/agent-camp/camp-cli/clients"
+	"github.com/denisqq/agent-camp/installer/profiles"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +38,7 @@ func connectRun(clientKey, url, profileName, name string, printOnly bool) error 
 	if err != nil {
 		return err
 	}
-	profile := clientconfig.Profile{Name: profileName, ServerURL: url, CredentialRef: "profile-" + profileName, Launcher: launcher}
+	profile := profiles.Profile{Name: profileName, ServerURL: url, CredentialRef: "profile-" + profileName, Launcher: launcher}
 
 	if printOnly || clientKey == "generic" {
 		entry := map[string]any{"mcpServers": map[string]any{
@@ -48,8 +49,8 @@ func connectRun(clientKey, url, profileName, name string, printOnly bool) error 
 		return nil
 	}
 
-	client := clientconfig.Client{Key: clientKey}
-	result, err := clientconfig.Install(client, clientconfig.Scope{}, profile, name)
+	client := clients.Client{Key: clientKey}
+	result, err := clients.Install(client, clients.Scope{}, profile, name)
 	if err != nil {
 		return err
 	}

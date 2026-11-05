@@ -25,7 +25,7 @@ go build ./...                     # must pass always
 go test -count=1 ./...             # unit + concurrency suites
 go test -race -count=1 ./...       # required before commits touching store/sessions/runner
 go vet ./...
-go build -o /tmp/camp ./camp-cli/cmd/camp   # binary smoke:
+go build -o /tmp/camp ./camp-cli/cmd/camp # binary smoke:
 CAMP_ROOT=/tmp/campdata /tmp/camp init && CAMP_ROOT=/tmp/campdata /tmp/camp serve
 docker build -t agent-camp .       # when touching Dockerfile or runner deps
 just <recipe>                      # see justfile
@@ -35,24 +35,21 @@ just <recipe>                      # see justfile
 
 | Path | What lives here |
 |---|---|
-| `internal/camp` | the engine: store (CAS commits, merkle tree), broker (SDK calls), sessions (run receipts), auth, files, backup, map() |
-| `internal/filestore` | local storage mode (directory with conditional writes) |
-| `internal/objectstore` | S3 storage mode (any S3-compatible endpoint, self-hosted first) |
-| `internal/control` | operational state: tokens, sessions, receipts (SQLite) — never workspace memory |
-| `internal/index` | disposable SQLite search projection (FTS5 + literal grep) |
-| `internal/runner` | pool of trusted Python adapter processes |
+| `camp-cli/` | the camp client (cobra): setup/register/bridge/doctor/connect, status/up/down; `clients/` client-integration adapters, `guide/` embedded workflow skill, `cmd/camp/` binary entry |
+| `camp-server/` | the server tree: `runtime/` (engine wiring: serve/mcp/index/bootstrap), engine packages (`camp` store/sessions/broker, `api` HTTP+MCP, `control` SQLite, `filestore`/`objectstore`, `index`, `runner`, `tree`), `cmd/camp-server/` binary entry |
+| `installer/` | installer: `setup` (onboarding orchestration), `profiles` (named server connections), `localservice` (child camp-server management), `runtimepack` (verified server runtime packs), `npm/` launcher |
+| `internal/config`, `internal/credstore` | shared by both binaries: camp.json loader, private credential store |
 | `runner/camp_runner.py` | the sandbox: Monty process + `camp_sdk` exposed to agent code |
-| `internal/api` | HTTP `/v1` + MCP server (map/start/run) |
-| `internal/server` | server runtime: engine wiring, serve/mcp/index, bootstrap |
-| `camp-cli` | the camp client command line (cobra): setup/register/bridge/doctor/connect, status/up/down |
-| `camp-server` | the camp-server command line (cobra): serve/mcp/init/token/backup/setup |
-| `installer/` | Go installer: `setup` (onboarding orchestration), `localservice` (child camp-server management), `runtimepack` (verified server runtime packs); `installer/npm` is the npm launcher |
-| `camp-cli/cmd/camp`, `camp-server/cmd/camp-server` | binary entry points (package main) inside each tree |
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
-
+| `installer/npm/` | npm wrapper (downloads release binaries) |
 | `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml` | pinned Trail-code MCP settings for source navigation |
 | `docs/INDEXING.md`, `docs/DEVELOPMENT.md` | local code index, runtime tests, and development setup |
+
+Dependency direction: `camp-cli` imports only `installer/*` and the shared
+`internal/config` + `internal/credstore` — never the engine; `camp-server`
+imports the engine and `internal/credstore` — never `camp-cli`. Keep it
+that way (`go list -deps` is the check).
 
 ## Invariants — do not break without explicit user approval
 

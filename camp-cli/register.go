@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/denisqq/agent-camp/internal/clientconfig"
-	"github.com/denisqq/agent-camp/internal/installer/setup"
+	"github.com/denisqq/agent-camp/installer/profiles"
+	"github.com/denisqq/agent-camp/installer/setup"
+	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
 )
 
@@ -94,14 +95,15 @@ func registerCmd() *cobra.Command {
 
 func registerRun(ctx context.Context, server, name, clientLabel, profileName, token, asProfile string) error {
 	server = strings.TrimSuffix(server, "/")
-	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
+	profileStore := profiles.Store{Dir: profiles.DefaultDir()}
+	creds := credstore.Store{Dir: credstore.DefaultDir()}
 	if token == "" {
 		for _, candidate := range []string{asProfile, profileName} {
 			if candidate == "" {
 				continue
 			}
-			if profile, err := store.LoadProfile(candidate); err == nil && profile.CredentialRef != "" {
-				if saved, err := store.LoadCredential(profile.CredentialRef); err == nil {
+			if profile, err := profileStore.Load(candidate); err == nil && profile.CredentialRef != "" {
+				if saved, err := creds.Load(profile.CredentialRef); err == nil {
 					token = saved
 					break
 				}
@@ -117,11 +119,11 @@ func registerRun(ctx context.Context, server, name, clientLabel, profileName, to
 		return err
 	}
 	ref := "agent-" + registration.AgentID
-	if err := store.SaveCredential(ref, registration.Token); err != nil {
+	if err := creds.Save(ref, registration.Token); err != nil {
 		return err
 	}
-	profile := clientconfig.Profile{Name: profileName, ServerURL: server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher}
-	if err := store.SaveProfile(profile); err != nil {
+	profile := profiles.Profile{Name: profileName, ServerURL: server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher}
+	if err := profileStore.Save(profile); err != nil {
 		return err
 	}
 	fmt.Printf("Registered agent %s (user %s) on %s.\nSaved private profile %q with workspace %q.\nConnect clients with: camp connect <client> --profile %s\n",

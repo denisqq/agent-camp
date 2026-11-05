@@ -6,17 +6,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/denisqq/agent-camp/camp-cli/clients"
+	"github.com/denisqq/agent-camp/installer/localservice"
+	"github.com/denisqq/agent-camp/installer/profiles"
+	"github.com/denisqq/agent-camp/installer/setup"
 	"github.com/denisqq/agent-camp/internal/config"
-	"github.com/denisqq/agent-camp/internal/installer/localservice"
-	"github.com/denisqq/agent-camp/internal/installer/setup"
-	"github.com/denisqq/agent-camp/internal/server"
+	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
 )
 
@@ -137,31 +140,19 @@ func startLocalService() error {
 	return nil
 }
 
-// bootstrapLocalInstance initializes the local instance (admin credential
-// + starter workspace) through the shared engine code so the first serve
-// is not an empty server. Idempotent; the admin credential lives in
-// private storage.
+// bootstrapLocalInstance initializes the local instance by delegating to
+// camp-server setup (child process): the client binary never links the
+// server engine. camp-server setup writes the configuration, bootstraps
+// admin + starter workspace, and stores the admin credential privately.
 func bootstrapLocalInstance() error {
-	cfg, err := loadConfig(config.Overrides{})
+	binary, err := serverBinary()
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	engine, err := server.Open(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	defer engine.Close()
-	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-	adminToken, err := store.LoadCredential("server-admin")
-	if err != nil { // first run: mint and save privately
-		adminToken = makeToken()
-		if err := store.SaveCredential("server-admin", adminToken); err != nil {
-			return err
-		}
-	}
-	return engine.Bootstrap(ctx, adminToken, true)
+	cmd := exec.Command(binary, "setup")
+	cmd.Stdout = io.Discard
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func makeToken() string {
@@ -184,11 +175,11 @@ func knownClient(key string) bool {
 type cliClientInstaller struct{}
 
 func (cliClientInstaller) Install(client, profileName string) error {
-	p, err := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}.LoadProfile(profileName)
+	p, err := profiles.Store{Dir: profiles.DefaultDir()}.Load(profileName)
 	if err != nil {
 		return err
 	}
-	result, err := clientconfig.Install(clientconfig.Client{Key: client}, clientconfig.Scope{}, p, "")
+	result, err := clients.Install(clients.Client{Key: client}, clients.Scope{}, p, "")
 	if err == nil {
 		for _, f := range result.Files {
 			fmt.Fprintf(os.Stderr, "camp: updated %s\n", f)
@@ -218,8 +209,7 @@ func setupStorageCmd() *cobra.Command {
 				return fmt.Errorf("keeping previous configuration: %w", err)
 			}
 			if mode == "s3" && accessKey != "" && credentialsRef != "" {
-				store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-				if err := store.SaveCredential(credentialsRef, accessKey+":"+secretKey); err != nil {
+				if err := (credstore.Store{Dir: credstore.DefaultDir()}).Save(credentialsRef, accessKey+":"+secretKey); err != nil {
 					return err
 				}
 			}

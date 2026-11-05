@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/denisqq/agent-camp/installer/profiles"
+	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
 )
 
@@ -45,8 +46,9 @@ func doctorRun(profileName string, write, jsonOut bool) error {
 		Detail  string `json:"detail,omitempty"`
 	}
 	var reports []report
-	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-	entries, _ := os.ReadDir(store.Dir)
+	profileStore := profiles.Store{Dir: profiles.DefaultDir()}
+	credStore := credstore.Store{Dir: credstore.DefaultDir()}
+	entries, _ := os.ReadDir(profileStore.Dir)
 	checked := map[string]bool{}
 	for _, entry := range entries {
 		name := entry.Name()
@@ -61,13 +63,13 @@ func doctorRun(profileName string, write, jsonOut bool) error {
 			continue
 		}
 		checked[profile] = true
-		p, err := store.LoadProfile(profile)
+		p, err := profileStore.Load(profile)
 		if err != nil {
 			reports = append(reports, report{Profile: profile, State: "configured", Detail: "profile unreadable: " + err.Error()})
 			continue
 		}
 		r := report{Profile: p.Name, Server: p.ServerURL, AgentID: p.AgentID}
-		token, credErr := store.LoadCredential(p.CredentialRef)
+		token, credErr := credStore.Load(p.CredentialRef)
 		switch {
 		case credErr != nil:
 			r.State, r.Detail = "configured", "credential unavailable — registration needs attention"

@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/denisqq/agent-camp/internal/camp"
-	"github.com/denisqq/agent-camp/internal/clientconfig"
+	"github.com/denisqq/agent-camp/camp-server/camp"
+	"github.com/denisqq/agent-camp/camp-server/runtime"
 	"github.com/denisqq/agent-camp/internal/config"
-	"github.com/denisqq/agent-camp/internal/server"
+	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
 )
 
@@ -283,8 +283,8 @@ func setupCmd() *cobra.Command {
 			if err = engine.Bootstrap(ctx, adminToken, true); err != nil {
 				return err
 			}
-			store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}
-			if err = store.SaveCredential("server-admin", adminToken); err != nil {
+			store := credstore.Store{Dir: credstore.DefaultDir()}
+			if err = store.Save("server-admin", adminToken); err != nil {
 				return err
 			}
 			fmt.Printf("Server instance ready at %s (data under %s).\nAdmin credential saved privately (ref server-admin).\nRun: camp-server serve\n", cfg.Listen, cfg.DataRoot)
