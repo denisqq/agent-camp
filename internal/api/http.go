@@ -1,10 +1,10 @@
 package api
 
 import (
-	"github.com/denisqq/agent-camp/internal/camp"
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/camp"
 	"github.com/go-chi/chi/v5"
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"io"
@@ -190,8 +190,8 @@ func (a *API) access(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Access   *camp.Access `json:"access"`
-		Policy   string        `json:"policy"`
-		Expected string        `json:"expected_commit"`
+		Policy   string       `json:"policy"`
+		Expected string       `json:"expected_commit"`
 	}
 	if err = decode(w, r, &req); err != nil {
 		reply(w, nil, err)

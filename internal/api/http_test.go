@@ -2,10 +2,10 @@ package api
 
 import (
 	"bytes"
-	"github.com/denisqq/agent-camp/internal/camp"
-	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"encoding/json"
+	"github.com/denisqq/agent-camp/internal/camp"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"net/http"
 	"net/http/httptest"
