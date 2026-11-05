@@ -21,6 +21,30 @@ jobs:
       - run: CGO_ENABLED=0 go build -trimpath -o camp ./cmd/camp
         env: { GOOS: "${{ matrix.goos }}", GOARCH: "${{ matrix.goarch }}" }
       - run: tar -czf camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz camp
+      - run: sha256sum camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz > camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz.sha256
       - uses: softprops/action-gh-release@v2
         with:
-          files: camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+          files: |
+            camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+            camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz.sha256
+
+  runtime-packs:
+    # Server runtime packs must be built on the target OS/arch: a Go
+    # cross-build is not acceptance for the Python/Monty runtime.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, platform: linux-amd64 }
+          - { os: ubuntu-24.04-arm, platform: linux-arm64 }
+          - { os: macos-latest, platform: darwin-arm64 }
+          - { os: macos-13, platform: darwin-amd64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: scripts/build-runtime.sh .
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            camp-runtime-*-${{ matrix.platform }}.tar.gz
+            camp-runtime-*-${{ matrix.platform }}.tar.gz.sha256
