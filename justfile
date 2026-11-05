@@ -14,7 +14,7 @@ vet:
 check: build test vet
 
 smoke:
-	go build -o /tmp/camp ./cmd/camp
+	go build -o /tmp/camp ./camp-cli/cmd/camp
 	rm -rf /tmp/campdata && CAMP_ROOT=/tmp/campdata /tmp/camp init
 	CAMP_ROOT=/tmp/campdata CAMP_LISTEN=127.0.0.1:18090 /tmp/camp serve &
 	sleep 1

@@ -65,7 +65,7 @@ Requirements: Go matching [go.mod](go.mod), Python 3.12+, and
 [uv](https://docs.astral.sh/uv/). Run these commands from the repository root.
 
 ```bash
-go build -o camp ./cmd/camp
+go build -o camp ./camp-cli/cmd/camp
 uv sync --project runner --frozen
 
 export CAMP_ROOT="$PWD/camp-data"

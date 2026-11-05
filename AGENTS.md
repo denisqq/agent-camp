@@ -25,7 +25,7 @@ go build ./...                     # must pass always
 go test -count=1 ./...             # unit + concurrency suites
 go test -race -count=1 ./...       # required before commits touching store/sessions/runner
 go vet ./...
-go build -o /tmp/camp ./cmd/camp   # binary smoke:
+go build -o /tmp/camp ./camp-cli/cmd/camp   # binary smoke:
 CAMP_ROOT=/tmp/campdata /tmp/camp init && CAMP_ROOT=/tmp/campdata /tmp/camp serve
 docker build -t agent-camp .       # when touching Dockerfile or runner deps
 just <recipe>                      # see justfile
@@ -47,7 +47,7 @@ just <recipe>                      # see justfile
 | `camp-cli` | the camp client command line (cobra): setup/register/bridge/doctor/connect, status/up/down |
 | `camp-server` | the camp-server command line (cobra): serve/mcp/init/token/backup/setup |
 | `installer/` | Go installer: `setup` (onboarding orchestration), `localservice` (child camp-server management), `runtimepack` (verified server runtime packs); `installer/npm` is the npm launcher |
-| `cmd/camp`, `cmd/camp-server` | thin entry points into camp-cli and camp-server |
+| `camp-cli/cmd/camp`, `camp-server/cmd/camp-server` | binary entry points (package main) inside each tree |
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
 

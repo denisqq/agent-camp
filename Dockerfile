@@ -3,7 +3,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /camp ./cmd/camp && CGO_ENABLED=0 go build -trimpath -o /camp-server ./cmd/camp-server
+RUN CGO_ENABLED=0 go build -trimpath -o /camp ./camp-cli/cmd/camp && CGO_ENABLED=0 go build -trimpath -o /camp-server ./camp-server/cmd/camp-server
 
 FROM python:3.12-slim-bookworm
 RUN pip install --no-cache-dir uv==0.9.9

@@ -19,8 +19,8 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: "1.27" }
       - run: |
-          CGO_ENABLED=0 go build -trimpath -o camp ./cmd/camp
-          CGO_ENABLED=0 go build -trimpath -o camp-server ./cmd/camp-server
+          CGO_ENABLED=0 go build -trimpath -o camp ./camp-cli/cmd/camp
+          CGO_ENABLED=0 go build -trimpath -o camp-server ./camp-server/cmd/camp-server
         env: { GOOS: "${{ matrix.goos }}", GOARCH: "${{ matrix.goarch }}" }
       - run: tar -czf camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz camp camp-server
       - run: sha256sum camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz > camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz.sha256

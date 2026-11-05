@@ -26,7 +26,7 @@ require maintainer approval.
 Keep repository instructions in `AGENTS.md`; `CLAUDE.md` and `GEMINI.md` point to
 it. Keep the public workspace skill in
 `plugins/agent-camp/skills/using-agent-camp/SKILL.md` consistent with the copy
-installed by `camp connect` in `cmd/camp/connect.go`.
+installed by `camp connect` in `camp-cli/connect.go`.
 
 Trail-code is development tooling. Its generated `graft/` cache stays out of Git
 and is rebuilt by each checkout. Avoid duplicating the same rules across agent

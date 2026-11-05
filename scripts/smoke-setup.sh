@@ -11,8 +11,8 @@ port="$((20000 + RANDOM % 20000))"
 trap 'rm -rf "$work"; [[ -n "${server_pid:-}" ]] && kill "$server_pid" 2>/dev/null || true' EXIT
 
 export PATH="$PATH:/usr/local/go/bin"
-go build -o "$work/camp" ./cmd/camp
-go build -o "$work/camp-server" ./cmd/camp-server
+go build -o "$work/camp" ./camp-cli/cmd/camp
+go build -o "$work/camp-server" ./camp-server/cmd/camp-server
 
 export CAMP_CONFIG="$work/server/camp.json"
 mkdir -p "$work/server"
