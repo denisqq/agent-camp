@@ -2,46 +2,62 @@ package api
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"github.com/denisqq/agent-camp/internal/camp"
 	"github.com/denisqq/agent-camp/internal/index"
 	"github.com/denisqq/agent-camp/internal/objectstore"
 	"github.com/denisqq/agent-camp/internal/runner"
-	"context"
-	"encoding/json"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 )
 
+func TestMontyMCPStack(t *testing.T) {
+	python := os.Getenv("CAMP_TEST_PYTHON")
+	if python == "" {
+		t.Skip("set CAMP_TEST_PYTHON for real Monty")
+	}
+	testMontyMCPStack(t, teststore.New(), python)
+}
+
 func TestActualS3MontyMCPStack(t *testing.T) {
-	endpoint := os.Getenv("BRAIN_TEST_S3_ENDPOINT")
-	python := os.Getenv("BRAIN_TEST_PYTHON")
+	endpoint := os.Getenv("CAMP_TEST_S3_ENDPOINT")
+	python := os.Getenv("CAMP_TEST_PYTHON")
 	if endpoint == "" || python == "" {
 		t.Skip("real S3 and Monty required")
 	}
 	ctx := context.Background()
-	objects, err := objectstore.NewS3(ctx, objectstore.S3Config{Endpoint: endpoint, Region: "us-east-1", Bucket: "brain-stack-" + camp.ID(), AccessKey: "brain-local-test", SecretKey: "brain-local-test-password"})
+	objects, err := objectstore.NewS3(ctx, objectstore.S3Config{Endpoint: endpoint, Region: "us-east-1", Bucket: "camp-stack-" + camp.ID(), AccessKey: "camp-local-test", SecretKey: "camp-local-test-password"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = objects.EnsureBucket(ctx); err != nil {
 		t.Fatal(err)
 	}
+	testMontyMCPStack(t, objects, python)
+}
+
+func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
+	t.Helper()
+	ctx := context.Background()
 	store := camp.NewStore(objects)
 	a := camp.NewAuth(camp.NewMemState())
 	adminToken := "stack-admin-" + camp.ID()
-	if err = a.Bootstrap(ctx, adminToken); err != nil {
+	if err := a.Bootstrap(ctx, adminToken); err != nil {
 		t.Fatal(err)
 	}
 	admin, _ := a.Authenticate(ctx, adminToken)
-	store.CreateSpace(ctx, camp.Space{ID: "alice", Kind: "personal", Owner: "alice"})
-	if _, err = store.CreateSpace(ctx, camp.Space{ID: "shared", Kind: "shared", Owner: "system"}); err != nil {
+	if _, err := store.CreateSpace(ctx, camp.Space{ID: "alice", Kind: "personal", Owner: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateSpace(ctx, camp.Space{ID: "shared", Kind: "shared", Owner: "system"}); err != nil {
 		t.Fatal(err)
 	}
 	token, err := a.Issue(ctx, admin, camp.Principal{Subject: "alice", Role: "author", Spaces: []string{"alice", "shared"}, Scopes: []string{"read", "write", "propose"}, Expires: time.Now().Add(time.Hour)})
@@ -58,6 +74,24 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	defer idx.Close()
 	b := camp.NewBroker(store, a)
 	b.Search = idx
+	// Seed a small shared library for discovery and pagination checks.
+	seed, err := b.Begin(ctx, admin, "shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, doc := range []struct{ path, kind, content string }{
+		{"/skills/review", "skill", "Review the change and report actionable findings."},
+		{"/skills/test", "skill", "Run the relevant tests."},
+		{"/skills/document", "skill", "Keep documentation consistent with behavior."},
+		{"/rules/workspace", "constitution", "Read existing documents before proposing changes."},
+	} {
+		if _, err := b.Call(ctx, seed, "write", map[string]any{"path": doc.path, "kind": doc.kind, "content": doc.content}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := b.Finish(ctx, seed, "seed", camp.Receipt{}); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(New(camp.NewSessions(b, pool)))
 	defer server.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "acceptance", Version: "1"}, nil)
@@ -89,9 +123,9 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	var entry camp.SessionView
 	call("start", map[string]any{"primary_space": discovered.Spaces[1].ID}, &entry)
 	examples := entry.Help["examples"].(map[string]any)
-	for _, name := range []string{"catalog", "rules", "help"} {
+	for _, name := range []string{"catalog", "rules", "read", "help"} {
 		var result camp.Receipt
-		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": examples[name]}, &result)
+		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": strings.ReplaceAll(examples[name].(string), "/path/from/catalog", "/skills/review")}, &result)
 		if result.Status != "no_changes" {
 			t.Fatalf("entry example %s: %+v", name, result)
 		}
@@ -99,14 +133,14 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	var overview map[string]any
 	began := time.Now()
 	call("map", map[string]any{"space": "shared", "depth": 2}, &overview)
-	if overview["coverage"] != "complete" || overview["records"] != float64(56) {
+	if overview["coverage"] != "complete" || overview["records"] != float64(4) {
 		t.Fatalf("seeded root map incomplete: %+v", overview)
 	}
-	t.Logf("real S3 MCP root map: %s", time.Since(began))
+	t.Logf("MCP root map: %s", time.Since(began))
 	var start camp.SessionView
 	call("start", map[string]any{"primary_space": "alice"}, &start)
 	var sdkOverview camp.Receipt
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "sdk-root-map", "code": "from brain_sdk import brain\nbrain.map(space='shared')"}, &sdkOverview)
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "sdk-root-map", "code": "from camp_sdk import camp\ncamp.map(space='shared')"}, &sdkOverview)
 	if sdkOverview.Status != "no_changes" {
 		t.Fatalf("SDK map: %+v", sdkOverview)
 	}
@@ -116,40 +150,25 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 		t.Fatal("real SDK and direct map differ")
 	}
 	var catalog camp.Receipt
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "catalog-visible", "code": "from brain_sdk import brain\nbrain.find(path='/skills/', kind='skill', space='shared', limit=5)"}, &catalog)
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "catalog-visible", "code": "from camp_sdk import camp\ncamp.find(path='/skills/', kind='skill', space='shared', limit=5)"}, &catalog)
 	if catalog.Status != "no_changes" {
 		t.Fatal("model-visible skill catalog exceeded output budget", catalog)
 	}
-	instructions, err := os.ReadFile("../../seeds/coauthor/skills/using-company-brain/SKILL.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	readExample := regexp.MustCompile("brain\\.read\\('/skills/post-writing-partner/SKILL\\.md'[^`]+\\)").FindString(string(instructions))
-	if readExample == "" {
-		t.Fatal("missing documented skill read example")
-	}
-	var visibleSkill camp.Receipt
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "documented-skill-read", "code": "from brain_sdk import brain\n" + readExample}, &visibleSkill)
-	if visibleSkill.Status != "no_changes" {
-		t.Fatal("documented skill read exceeds runtime output budget", visibleSkill)
-	}
-	var constitution camp.Receipt
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "constitution", "code": "from brain_sdk import brain\nbrain.read('/constitutions/coauthor/CONSTITUTION.md', space='shared', limit=40)"}, &constitution)
-	if constitution.Status != "no_changes" {
-		t.Fatal("MCP constitution read", constitution)
-	}
-	payload, _ := json.Marshal(constitution.Result)
-	if !strings.Contains(string(payload), "Конституция агентов Coauthor") {
-		t.Fatal("constitution missing from result")
-	}
+
 	var library camp.Receipt
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "library", "code": "from brain_sdk import brain\npage = camp.find(path='/skills/', kind='skill', space='shared', limit=2)\nassert len(page['items']) == 2\nassert page['cursor']\ntext = camp.read('/skills/post-writing-partner/SKILL.md', space='shared')\nassert text['content']\nresource = camp.read('/skills/styling-deliverables/scripts/theme.py', space='shared')\nassert resource['content']\n{'loaded': True}"}, &library)
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "library", "code": "from camp_sdk import camp\npage = camp.find(path='/skills/', kind='skill', space='shared', limit=2)\nassert len(page['items']) == 2\nassert page['cursor']\ntext = camp.read('/skills/review', space='shared')\nassert text['content']\n{'loaded': True}"}, &library)
 	if library.Status != "no_changes" {
 		t.Fatal("MCP skill discovery", library)
 	}
+	var rules camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "rules", "code": "from camp_sdk import camp\ncamp.read('/rules/workspace', space='shared')"}, &rules)
+	payload, _ := json.Marshal(rules.Result)
+	if rules.Status != "no_changes" || !strings.Contains(string(payload), "Read existing documents") {
+		t.Fatal("MCP rules read", rules)
+	}
 	var parallel camp.SessionView
 	call("start", map[string]any{"primary_space": "alice"}, &parallel)
-	req := map[string]any{"session_id": start.ID, "operation_id": "create", "code": "from brain_sdk import brain\nbrain.write('/goals/growth', 'Рост канала', kind='goal', metadata={'status': 'active'})\nbrain.write('/cases/failure', 'Неудачный опыт', kind='experiment', metadata={'outcome': 'failure'})\n{'saved': 2}"}
+	req := map[string]any{"session_id": start.ID, "operation_id": "create", "code": "from camp_sdk import camp\ncamp.write('/goals/growth', 'Рост канала', kind='goal', metadata={'status': 'active'})\ncamp.write('/cases/failure', 'Неудачный опыт', kind='experiment', metadata={'outcome': 'failure'})\n{'saved': 2}"}
 	var receipt camp.Receipt
 	call("run", req, &receipt)
 	if receipt.Status != "completed" || receipt.ChangeID == "" {
@@ -157,7 +176,7 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	}
 	first := receipt.ChangeID
 	var independent camp.Receipt
-	call("run", map[string]any{"session_id": parallel.ID, "operation_id": "independent", "code": "from brain_sdk import brain\nbrain.write('/research/other', 'Independent agent work')"}, &independent)
+	call("run", map[string]any{"session_id": parallel.ID, "operation_id": "independent", "code": "from camp_sdk import camp\ncamp.write('/research/other', 'Independent agent work')"}, &independent)
 	if independent.Status != "completed" {
 		t.Fatal("independent MCP session conflicted", independent)
 	}
@@ -168,7 +187,7 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	if err = idx.Sync(ctx, store, "alice"); err != nil {
 		t.Fatal(err)
 	}
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "search", "code": "from brain_sdk import brain\nbrain.search('Неудачный')"}, &receipt)
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "search", "code": "from camp_sdk import camp\ncamp.search('Неудачный')"}, &receipt)
 	if receipt.Status != "no_changes" {
 		t.Fatal(receipt)
 	}
@@ -180,7 +199,7 @@ func TestActualS3MontyMCPStack(t *testing.T) {
 	if len(result.Items) != 1 || result.Items[0].Path != "/cases/failure" {
 		t.Fatalf("search: %s", encoded)
 	}
-	call("run", map[string]any{"session_id": start.ID, "operation_id": "rollback", "code": "from brain_sdk import brain\nbrain.write('/must-not-exist','no')\nraise ValueError('stop')"}, &receipt)
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "rollback", "code": "from camp_sdk import camp\ncamp.write('/must-not-exist','no')\nraise ValueError('stop')"}, &receipt)
 	if receipt.Status != "failed" {
 		t.Fatal(receipt)
 	}

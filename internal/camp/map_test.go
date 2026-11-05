@@ -1,12 +1,12 @@
 package camp
 
 import (
-	"github.com/denisqq/agent-camp/internal/objectstore"
-	"github.com/denisqq/agent-camp/internal/teststore"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/denisqq/agent-camp/internal/objectstore"
+	"github.com/denisqq/agent-camp/internal/teststore"
 	"strings"
 	"testing"
 	"time"
@@ -261,7 +261,7 @@ func TestMapPropagatesSourceStorageFailures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = b.Store.Commit(ctx, shared, []Revision{{ID: "practice-rev", RecordID: "practice", Path: "/practices/example", Kind: "practice", Content: "method", Actor: "brain-arbiter", Sources: []SourceRef{{Space: "bob", Record: "source-record", Revision: "source-rev", Path: "/source", Policy: source.Space.Policy}}}}, "practice", Receipt{}, nil)
+			_, err = b.Store.Commit(ctx, shared, []Revision{{ID: "practice-rev", RecordID: "practice", Path: "/practices/example", Kind: "practice", Content: "method", Actor: "camp-arbiter", Sources: []SourceRef{{Space: "bob", Record: "source-record", Revision: "source-rev", Path: "/source", Policy: source.Space.Policy}}}}, "practice", Receipt{}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

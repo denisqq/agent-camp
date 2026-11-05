@@ -5,3 +5,12 @@ data/
 .env
 /camp
 dist/
+
+# Trail-code source index; regenerate with just code-index.
+/graft/
+
+# Local workspace, Python environment, and source-code index
+/camp-data/
+/runner/.venv/
+__pycache__/
+*.pyc

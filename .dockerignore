@@ -2,3 +2,7 @@ camp-data/
 .git/
 dist/
 *.sqlite*
+
+graft/
+runner/.venv/
+**/__pycache__/

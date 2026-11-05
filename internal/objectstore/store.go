@@ -1,4 +1,4 @@
-// Package objectstore defines the conditional object operations required by Brain.
+// Package objectstore defines the conditional object operations required by Camp.
 package objectstore
 
 import (

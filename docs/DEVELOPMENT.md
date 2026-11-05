@@ -1,0 +1,81 @@
+# Development
+
+## Checks
+
+Use the Go version from [go.mod](../go.mod). The full check chain is:
+
+```bash
+go build ./...
+go test -count=1 ./...
+go test -race -count=1 ./...
+go vet ./...
+```
+
+`just check` runs build, tests, and vet. `just race` runs the race detector.
+Race checks are required for changes touching storage, sessions, or the runner.
+
+## Real Python runner
+
+Install the existing locked dependencies and enable the integration tests:
+
+```bash
+uv sync --project runner --frozen
+export CAMP_TEST_PYTHON="$PWD/runner/.venv/bin/python"
+go test -count=1 ./internal/runner ./internal/api
+```
+
+The runner suite exercises SDK calls, sandbox restrictions, timeouts, output
+limits, and process recovery. The MCP suite runs returned `start` examples,
+reads and writes documents, checks retries and concurrent sessions, and verifies
+rollback with self-contained test data. Neither requires external seed files.
+Tests skip the real runtime when `CAMP_TEST_PYTHON` is unset.
+
+To include S3 contract and MCP stack checks, set `CAMP_TEST_S3_ENDPOINT` to a
+reachable disposable MinIO instance configured with access key `camp-local-test`
+and secret key `camp-local-test-password`. Tests create buckets named
+`camp-contract` and `camp-stack-<id>`; use a test deployment.
+
+After runner or Docker dependency changes:
+
+```bash
+docker build -t agent-camp:dev .
+```
+
+For a live write through the server, follow the [quickstart](../README.md#quickstart).
+The runner executable paths must be absolute.
+
+## Sharing a team space
+
+Creating a space with `kind: "team"` does not grant every agent access. Its owner
+can write; other agents need a matching space or section grant, as well as a
+token listing the space and required scopes.
+
+As an administrator, call `GET /v1/admin/spaces/workspace` to read existing
+space-level grants. Open a session with `POST /v1/sessions/start` and body
+`{"primary_space":"workspace"}`. Use the returned `snapshot` as the expected
+commit when updating access:
+
+```http
+PUT /v1/admin/spaces/workspace/access
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "expected_commit": "<snapshot-from-start>",
+  "access": {
+    "share": [{"subject": "agent-two", "role": "writer"}]
+  }
+}
+```
+
+The access update replaces the space-level grants. Include any existing grants
+you intend to keep. A stale `expected_commit` produces a conflict; fetch the
+current state before retrying. Issue `agent-two` its own token with `workspace`
+in its space list. See the [document model](MODEL.md) for section overrides.
+
+## Naming compatibility
+
+The public CLI, SDK, environment variables, and packages use Camp. The internal
+curation subject `brain-curator` keeps its historical name because persisted ACLs
+may grant that exact subject access. Renaming it requires an explicit migration
+of stored grants; it is not a public SDK name or an alias for `camp_sdk`.

@@ -5,6 +5,19 @@ transactional document store behind MCP (`map`/`start`/`run`) and HTTP `/v1`.
 Read [README.md](README.md) for positioning and [docs/MODEL.md](docs/MODEL.md)
 for the logical model before changing semantics.
 
+## Start here
+
+1. Read [README.md](README.md) for the product and [docs/README.md](docs/README.md)
+   for documentation navigation.
+2. Read [docs/MODEL.md](docs/MODEL.md) before changing behavior and
+   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component boundaries.
+3. Use Trail-code's `trail_repo_map`, `trail_find_code`, and `trail_trace_calls`
+   when its MCP server is available. Build the local source index with
+   `just code-index`; see [docs/INDEXING.md](docs/INDEXING.md). Use `rg` for exact
+   text, Markdown, and configuration. The index is navigation, not authority.
+4. Read the relevant code and tests, preserve the invariants below, and run the
+   required checks. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
+
 ## Commands
 
 ```bash
@@ -34,6 +47,8 @@ just <recipe>                      # see justfile
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
 | `npm/` | npm wrapper (downloads release binaries) |
+| `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml` | pinned Trail-code MCP settings for source navigation |
+| `docs/INDEXING.md`, `docs/DEVELOPMENT.md` | local code index, runtime tests, and development setup |
 
 ## Invariants — do not break without explicit user approval
 
@@ -78,6 +93,9 @@ just <recipe>                      # see justfile
   that exercises it through `Broker.Call`. Keep help and behavior in sync.
 - Docs that describe behavior (README, docs/MODEL.md) must be updated in the
   same commit as the behavior change.
+- Use Camp names for packages, SDK imports (`camp_sdk`), and environment variables
+  (`CAMP_*`). Preserve the historical `brain-curator` ACL subject until a stored
+  permissions migration is explicitly approved; see `docs/DEVELOPMENT.md`.
 - Commits: `feat|fix|docs|refactor|test: summary` — imperative, one line.
 
 ## Before you finish

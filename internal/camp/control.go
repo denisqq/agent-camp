@@ -1,10 +1,10 @@
 package camp
 
 import (
-	"github.com/denisqq/agent-camp/internal/tree"
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/denisqq/agent-camp/internal/tree"
 )
 
 func (s *Store) ControlGet(ctx context.Context, snap Snapshot, key string, out any) error {
@@ -52,6 +52,8 @@ func (b *Broker) CheckSources(ctx context.Context, sources []SourceRef) error {
 		if rec.Deleted || rec.Path != source.Path {
 			return ErrDenied
 		}
+		// Persisted ACLs may grant this subject access. Keep its pre-Camp name
+		// until an explicit ACL migration changes both stored grants and checks.
 		p := Principal{Subject: "brain-curator", Role: "curator", Spaces: []string{source.Space}, Scopes: []string{"read", "collective:process"}}
 		if err = b.AuthorizePath(ctx, p, snap, source.Path, "collective:process"); err != nil {
 			return err

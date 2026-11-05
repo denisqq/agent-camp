@@ -95,10 +95,10 @@ func sessionView(st SessionState) SessionView {
 	help := SDKHelp("")
 	help["primary_space"] = st.Primary
 	help["examples"] = map[string]string{
-		"catalog": "from brain_sdk import brain\nbrain.ls('/', limit=10)",
-		"rules":   "from brain_sdk import brain\nbrain.find(kind='constitution', limit=5)",
-		"read":    "from brain_sdk import brain\nbrain.read('/path/from/catalog', start_line=1, limit=40)",
-		"help":    "from brain_sdk import brain\nbrain.help('navigation')",
+		"catalog": "from camp_sdk import camp\ncamp.ls('/', limit=10)",
+		"rules":   "from camp_sdk import camp\ncamp.find(kind='constitution', limit=5)",
+		"read":    "from camp_sdk import camp\ncamp.read('/path/from/catalog', start_line=1, limit=40)",
+		"help":    "from camp_sdk import camp\ncamp.help('navigation')",
 	}
 	help["workflow"] = "Use run(session_id, operation_id, code) with these examples. Discover rules in this space and any relevant shared space returned by map(); read returned rule paths before applied methods. Catalog entries contain paths and metadata; replace the read example path with one returned by the catalog. Read progressively; check truncated/coverage and follow cursors. Use a new operation_id for new code; identical retries reuse it."
 	return SessionView{st.ID, st.Snapshots[st.Primary].Commit, st.SDKVersion, help}

@@ -9,11 +9,11 @@ import (
 )
 
 func TestRealMontySDKAndLimits(t *testing.T) {
-	python := os.Getenv("BRAIN_TEST_PYTHON")
+	python := os.Getenv("CAMP_TEST_PYTHON")
 	if python == "" {
-		t.Skip("BRAIN_TEST_PYTHON required for real Monty")
+		t.Skip("CAMP_TEST_PYTHON required for real Monty")
 	}
-	script, err := filepath.Abs("../../runner/brain_runner.py")
+	script, err := filepath.Abs("../../runner/camp_runner.py")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,11 +25,11 @@ func TestRealMontySDKAndLimits(t *testing.T) {
 		calls++
 		return map[string]any{"content": "привет"}, nil
 	}
-	result, err := pool.Execute(ctx, "from brain_sdk import brain\nbrain.read('/a')['content']", cb)
+	result, err := pool.Execute(ctx, "from camp_sdk import camp\ncamp.read('/a')['content']", cb)
 	if err != nil || result.Value != "привет" || calls != 1 {
 		t.Fatalf("SDK: %+v %v calls=%d", result, err, calls)
 	}
-	for _, code := range []string{"open('/etc/passwd').read()", "import socket\nsocket.socket()", "from brain_sdk import brain\nbrain._callback", "'x'*1000000000", "print('x'*20000)"} {
+	for _, code := range []string{"open('/etc/passwd').read()", "import socket\nsocket.socket()", "from camp_sdk import camp\ncamp._callback", "'x'*1000000000", "print('x'*20000)"} {
 		if _, err = pool.Execute(ctx, code, cb); err == nil {
 			t.Fatalf("accepted unsafe/oversized code: %s", code)
 		}

@@ -8,12 +8,12 @@ import (
 )
 
 func TestS3ConditionalWrites(t *testing.T) {
-	endpoint := os.Getenv("BRAIN_TEST_S3_ENDPOINT")
+	endpoint := os.Getenv("CAMP_TEST_S3_ENDPOINT")
 	if endpoint == "" {
-		t.Skip("set BRAIN_TEST_S3_ENDPOINT for real MinIO contract")
+		t.Skip("set CAMP_TEST_S3_ENDPOINT for real MinIO contract")
 	}
 	ctx := context.Background()
-	s, err := NewS3(ctx, S3Config{Endpoint: endpoint, Region: "us-east-1", Bucket: "brain-contract", AccessKey: "brain-local-test", SecretKey: "brain-local-test-password"})
+	s, err := NewS3(ctx, S3Config{Endpoint: endpoint, Region: "us-east-1", Bucket: "camp-contract", AccessKey: "camp-local-test", SecretKey: "camp-local-test-password"})
 	if err != nil {
 		t.Fatal(err)
 	}
