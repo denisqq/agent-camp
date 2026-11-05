@@ -1,14 +1,17 @@
-# Local workspace storage. S3 example: docker-compose.s3.yml.
+# Local workspace storage, development build. For the published-image flow
+# see examples/compose/local.yaml (config mount + `setup server` + serve).
 services:
   camp:
     build: .
     environment:
-      CAMP_ADMIN_TOKEN: ${CAMP_ADMIN_TOKEN:?Set CAMP_ADMIN_TOKEN in .env}
+      CAMP_CONFIG: /config/camp.json
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
+      - camp-config:/config
       - camp-data:/data
     command: ["init-and-serve"]
 
 volumes:
+  camp-config:
   camp-data:

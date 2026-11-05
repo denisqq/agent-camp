@@ -1,0 +1,21 @@
+# Camp with directory storage. The same mounted configuration and data
+# serve both `setup server` and the running service.
+#
+#   docker compose -f examples/compose/local.yaml pull
+#   docker compose -f examples/compose/local.yaml run --rm camp setup server
+#   docker compose -f examples/compose/local.yaml up -d
+services:
+  camp:
+    image: ghcr.io/denisqq/agent-camp:latest
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - camp-config:/config
+      - camp-data:/data
+    environment:
+      CAMP_CONFIG: /config/camp.json
+    command: ["serve"]
+
+volumes:
+  camp-config:
+  camp-data:

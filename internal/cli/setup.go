@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/denisqq/agent-camp/internal/clientconfig"
 	"github.com/denisqq/agent-camp/internal/config"
 	"github.com/denisqq/agent-camp/internal/localservice"
+	"github.com/denisqq/agent-camp/internal/server"
 	"github.com/denisqq/agent-camp/internal/setup"
 )
 
@@ -196,7 +197,13 @@ func setupServer(args []string) error {
 	// Initialize the instance: bootstrap the admin credential and the
 	// starter workspace through the same engine path `camp init` uses.
 	adminToken := makeToken()
-	if err := initEngine(cfg, adminToken); err != nil {
+	ctx := context.Background()
+	engine, err := server.Open(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer engine.Close()
+	if err = engine.Bootstrap(ctx, adminToken, true); err != nil {
 		return err
 	}
 	store := clientconfig.Store{Dir: clientconfig.DefaultStoreDir()}

@@ -18,4 +18,7 @@ ENV CAMP_ROOT=/data CAMP_LISTEN=0.0.0.0:8090 \
     CAMP_RUNNER_SCRIPT=/opt/camp/runner/camp_runner.py \
     CAMP_MONTY_BINARY=/opt/camp/runner/.venv/bin/monty
 EXPOSE 8090
+# Liveness only: /ready additionally checks storage and control state.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["camp", "readycheck", "http://127.0.0.1:8090/ready"]
 ENTRYPOINT ["camp"]

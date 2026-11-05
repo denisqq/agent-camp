@@ -33,6 +33,27 @@ func New(s *camp.Sessions, registrations ...*camp.RegistrationService) http.Hand
 	}
 	router := chi.NewRouter()
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) { reply(w, map[string]string{"status": "ok"}, nil) })
+	// Readiness: storage and control state usable (for the operator's
+	// process manager). Liveness (/health) stays independent of a
+	// temporary storage outage.
+	router.Get("/ready", func(w http.ResponseWriter, r *http.Request) {
+		ready := map[string]string{"status": "ok"}
+		ctx := r.Context()
+		if _, err := s.Broker.Store.Spaces(ctx); err != nil {
+			ready["status"], ready["storage"] = "unavailable", err.Error()
+		}
+		if s.State != nil {
+			if _, _, err := s.State.Session(ctx, "readiness-probe"); err != nil && !errors.Is(err, camp.ErrNotFound) {
+				ready["status"], ready["control"] = "unavailable", err.Error()
+			}
+		}
+		if ready["status"] != "ok" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(ready)
+			return
+		}
+		reply(w, ready, nil)
+	})
 	verify := func(ctx context.Context, token string, request *http.Request) (*mcpauth.TokenInfo, error) {
 		p, err := s.Broker.Auth.Authenticate(ctx, token)
 		if err != nil {

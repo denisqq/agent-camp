@@ -43,7 +43,9 @@ just <recipe>                      # see justfile
 | `internal/runner` | pool of trusted Python adapter processes |
 | `runner/camp_runner.py` | the sandbox: Monty process + `camp_sdk` exposed to agent code |
 | `internal/api` | HTTP `/v1` + MCP server (map/start/run) |
-| `cmd/camp` | CLI: init, serve, token, connect, backup/restore |
+| `internal/server` | server runtime: engine wiring, serve/mcp/index, bootstrap |
+| `internal/cli` | the camp command line (client onboarding + server commands) |
+| `cmd/camp` | thin entry point; all logic in internal/cli and internal/server |
 | `plugins/`, `.claude-plugin/` | Claude Code plugin marketplace payload |
 | `docs/MODEL.md`, `docs/ARCHITECTURE.md` | logical model; C1–C3 diagrams and the space concept |
 | `npm/` | npm wrapper (downloads release binaries) |

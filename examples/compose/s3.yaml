@@ -1,0 +1,40 @@
+# Camp against an existing S3 endpoint (MinIO here as a stand-in for any
+# S3-compatible service you already run). Replace the endpoint, bucket,
+# and credentials with your own; Camp never provisions storage.
+#
+#   docker compose -f examples/compose/s3.yaml pull
+#   docker compose -f examples/compose/s3.yaml run --rm camp \
+#     setup server --mode s3 --endpoint http://s3:9000 --bucket camp \
+#     --region us-east-1 --credentials-ref s3-primary \
+#     --access-key "$KEY" --secret-key "$SECRET"
+#   docker compose -f examples/compose/s3.yaml up -d
+services:
+  camp:
+    image: ghcr.io/denisqq/agent-camp:latest
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - camp-config:/config
+      - camp-control:/data
+    environment:
+      CAMP_CONFIG: /config/camp.json
+    command: ["serve"]
+
+  s3:
+    image: quay.io/minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${CAMP_S3_ACCESS_KEY:?set CAMP_S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${CAMP_S3_SECRET_KEY:?set CAMP_S3_SECRET_KEY}
+    volumes:
+      - camp-objects:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  camp-config:
+  camp-control:
+  camp-objects:
