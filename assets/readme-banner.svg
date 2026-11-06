@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="460" viewBox="0 0 1280 460" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">Camp — a common ground for your agents</title>
+  <desc id="description">Codex, Claude Code, and Cursor connect to a shared document. Warm paper, forest green, and orange illustrate work that continues across agents and sessions.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" stroke="#C1D5C9" stroke-opacity=".045"/></pattern>
+  </defs>
+  <rect width="1280" height="460" rx="16" fill="#102D28"/>
+  <rect x="576" width="704" height="460" fill="url(#grid)"/>
+  <circle cx="963" cy="235" r="194" stroke="#BCD0C5" stroke-opacity=".09"/>
+  <circle cx="963" cy="235" r="141" stroke="#BCD0C5" stroke-opacity=".07" stroke-dasharray="3 9"/>
+  <path d="M71 106L94 58L117 106H71Z" stroke="#F49E76" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M84 106L94 84L104 106M94 58V45M88 48H105" stroke="#F49E76" stroke-width="3" stroke-linejoin="round"/>
+  <text x="135" y="105" fill="#F4EFE2" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" letter-spacing="-4">camp</text>
+  <text x="70" y="228" fill="#F4EFE2" font-family="Arial, Helvetica, sans-serif" font-size="53" font-weight="700" letter-spacing="-2">Work together.</text>
+  <text x="70" y="291" fill="#F4EFE2" font-family="Arial, Helvetica, sans-serif" font-size="53" font-weight="700" letter-spacing="-2">Pick up anywhere.</text>
+  <text x="73" y="335" fill="#A8BFB3" font-family="Arial, Helvetica, sans-serif" font-size="18">A common ground for your agents.</text>
+  <path d="M73 394H107" stroke="#F49E76" stroke-width="2"/>
+  <text x="120" y="399" fill="#A8BFB3" font-family="Arial, Helvetica, sans-serif" font-size="11" letter-spacing="2">OPEN SOURCE / SELF-HOSTED / MCP</text>
+  <!-- Links connect clients to the same persistent work. -->
+  <path d="M810 113H846C876 113 868 176 900 176" stroke="#AAC3B3" stroke-width="1.5"/>
+  <path d="M810 360H846C878 360 868 312 900 312" stroke="#AAC3B3" stroke-width="1.5"/>
+  <path d="M1168 154V185C1168 213 1154 225 1128 225" stroke="#AAC3B3" stroke-width="1.5"/>
+  <circle cx="900" cy="176" r="4" fill="#F49E76"/>
+  <circle cx="900" cy="312" r="4" fill="#F49E76"/>
+  <circle cx="1128" cy="225" r="4" fill="#F49E76"/>
+  <!-- Terminal cards are a conceptual illustration, not a product UI. -->
+  <rect x="622" y="71" width="188" height="83" rx="8" fill="#193C34" stroke="#55766A"/>
+  <circle cx="640" cy="91" r="3" fill="#F49E76"/>
+  <text x="652" y="95" fill="#D1DDD2" font-family="monospace" font-size="10" letter-spacing="1.4">CODEX</text>
+  <path d="M638 112L645 117L638 122M653 122H666" stroke="#F49E76" stroke-width="1.5"/>
+  <path d="M678 117H748M678 128H723" stroke="#88A396" stroke-opacity=".6" stroke-linecap="round"/>
+  <rect x="622" y="329" width="188" height="83" rx="8" fill="#193C34" stroke="#55766A"/>
+  <circle cx="640" cy="349" r="3" fill="#F49E76"/>
+  <text x="652" y="353" fill="#D1DDD2" font-family="monospace" font-size="10" letter-spacing="1.1">CLAUDE CODE</text>
+  <path d="M638 370L645 375L638 380M653 380H666" stroke="#F49E76" stroke-width="1.5"/>
+  <path d="M678 375H754M678 386H724" stroke="#88A396" stroke-opacity=".6" stroke-linecap="round"/>
+  <rect x="1093" y="71" width="150" height="83" rx="8" fill="#193C34" stroke="#55766A"/>
+  <circle cx="1111" cy="91" r="3" fill="#F49E76"/>
+  <text x="1123" y="95" fill="#D1DDD2" font-family="monospace" font-size="10" letter-spacing="1.4">CURSOR</text>
+  <path d="M1109 112L1116 117L1109 122M1124 122H1137" stroke="#F49E76" stroke-width="1.5"/>
+  <path d="M1148 117H1223M1148 128H1194" stroke="#88A396" stroke-opacity=".6" stroke-linecap="round"/>
+  <!-- Shared paper and its versioned layers. -->
+  <rect x="886" y="151" width="250" height="212" rx="5" fill="#D17B57" transform="rotate(5 886 151)"/>
+  <rect x="872" y="143" width="250" height="212" rx="5" fill="#D9D4C5" transform="rotate(-4 872 143)"/>
+  <rect x="882" y="143" width="250" height="212" rx="5" fill="#F4EFE2"/>
+  <path d="M901 179H1113" stroke="#D5CEBC"/>
+  <text x="902" y="165" fill="#9E5537" font-family="monospace" font-size="10" letter-spacing="2">WORKSPACE</text>
+  <circle cx="1108" cy="161" r="3" fill="#32694F"/>
+  <text x="902" y="212" fill="#193C34" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" letter-spacing="-.4">A decision, with</text>
+  <text x="902" y="240" fill="#193C34" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" letter-spacing="-.4">the work behind it.</text>
+  <path d="M903 263H1103M903 274H1088M903 285H1050" stroke="#AFB2A2" stroke-width="2" stroke-linecap="round"/>
+  <path d="M902 307H1113" stroke="#D5CEBC"/>
+  <text x="903" y="330" fill="#536A5C" font-family="monospace" font-size="9" letter-spacing=".8">WRITE</text>
+  <text x="976" y="330" fill="#536A5C" font-family="monospace" font-size="9" letter-spacing=".8">DISCUSS</text>
+  <text x="1060" y="330" fill="#536A5C" font-family="monospace" font-size="9" letter-spacing=".8">CONTINUE</text>
+  <circle cx="862" cy="82" r="3" fill="#F49E76" opacity=".6"/>
+  <path d="M1196 339V351M1190 345H1202" stroke="#F49E76" stroke-width="1.5" opacity=".65"/>
+  <circle cx="931" cy="411" r="2" fill="#A8BFB3" opacity=".6"/>
+</svg>

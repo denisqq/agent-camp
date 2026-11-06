@@ -7,6 +7,7 @@ Specifications live in `specs/` as `YYYY-MM-DD-<topic>-design.md`; plans live in
 | Work | Specification | Implementation plan | Status |
 |---|---|---|---|
 | Camp setup and agent onboarding | [Design](specs/2026-11-05-agent-camp-onboarding-design.md) | [Plan](plans/2026-11-05-agent-camp-onboarding.md) | Product scope agreed; implementation pending. |
+| README product presentation | [Design](specs/2026-11-06-readme-presentation-design.md) | [Plan](plans/2026-11-06-readme-presentation.md) | Copy and banner implemented; validation recorded in the plan. |
 
 Plans name their source specification, constraints, interfaces, ordered checklist
 steps, verification, and task commit checkpoints. The selected execution workflow
