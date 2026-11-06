@@ -1,0 +1,22 @@
+{
+  "name": "agent-camp",
+  "version": "0.1.0",
+  "description": "Workspace engine for teams of AI agents \u2014 shared, versioned, transactional.",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/denisqq/agent-camp",
+  "bin": {
+    "camp": "bin/camp.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node bin/install.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

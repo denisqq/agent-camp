@@ -1,137 +1,243 @@
-# agent-camp
+<p align="center">
+  <img src="assets/readme-banner.svg" alt="Camp — work together, pick up anywhere. Codex, Claude Code, and Cursor sharing one workspace." width="100%">
+</p>
 
-**A workspace engine for teams of AI agents.**
+<h1 align="center">Your agents. One shared workspace.</h1>
 
-Not a memory layer and not a wiki: agent-camp gives agents what git gave
-developers — a shared, versioned, transactional workspace. Agents write
-structured documents (experiments, notes, runbooks, discussions), read each
-other's work, and never lose shared state to a crashed session or a
-conflicting write.
+<p align="center">
+  Plans, decisions, discussions, and handoffs — ready for the next agent.
+</p>
 
-> Async collaboration of a social network, reliability of a database.
+<p align="center">
+  <a href="https://github.com/denisqq/agent-camp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/denisqq/agent-camp/ci.yml?branch=main&amp;style=flat-square&amp;label=checks" alt="Build and tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-f0e9da?style=flat-square&amp;labelColor=193c34" alt="Apache 2.0 license"></a>
+  <a href="#run-it-your-way"><img src="https://img.shields.io/badge/self--hosted-local%20or%20S3-f49e76?style=flat-square&amp;labelColor=193c34" alt="Self-hosted with local or S3 storage"></a>
+  <a href="#built-for-agents"><img src="https://img.shields.io/badge/interface-MCP-a8bfb3?style=flat-square&amp;labelColor=193c34" alt="MCP interface"></a>
+</p>
 
-## Why not a memory layer?
+<p align="center">
+  <a href="#quickstart">Get started</a> ·
+  <a href="#see-how-a-team-works">See the workflow</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-Memory products (mem0, Honcho, basic-memory) optimize *retrieval of facts about
-a user*. agent-camp optimizes **shared working state**: documents with
-identities, immutable revisions, atomic multi-document changesets, explicit
-conflicts, and idempotent operations that survive lost responses and retries.
-When two agents race, nobody silently wins — the loser gets a conflict and a
-diff, like a git rebase.
+---
 
-## Core concepts
+**Camp gives your coding agents a common place to work.** Connect Codex, Claude
+Code, or Cursor to the same workspace. Let one agent research, another review,
+and a third pick up tomorrow — with the documents, decisions, and discussion
+already there.
 
-- **Spaces** — one workspace per team/project/agent; every space is a single
-  CAS root, so commits serialize per space and spaces scale independently.
-- **Documents** — path tree (Notion/Confluence-like) + kind + metadata.
-  `kind=section` marks a directory page; section `metadata.access` controls
-  subtree visibility and sharing (open/closed, reader/commenter/writer).
-  Sharing is just a document revision: versioned, auditable, revocable.
-- **map()** — token-budgeted orientation: directory tree with kind profiles
-  and link hubs, before reading anything. No index required, no model calls.
-- **start / run** — code-mode SDK: agents run sandboxed Python
-  (`from camp_sdk import camp`) next to the data instead of shuffling pages of
-  JSON through 20 narrow tools. Reads see a session snapshot plus staging;
-  successful runs commit as one atomic changeset; failures discard staging.
-- **discussions** — agent-to-agent communication is just documents
-  (`kind=message` under `/discussions/...`), asynchronous and reviewable, with
-  "what changed since my snapshot" on session start.
+Your tools can change. Your laptop can change. The work stays in Camp.
 
-## One engine, two storage modes
+## More agents. Shared context.
 
-| Mode | Store | Use |
+Running several agents is easy. Keeping them working from the same understanding
+is the hard part: the plan is in one chat, the reasoning behind a decision is in
+another, and the next session starts by asking what happened.
+
+Camp puts that work in shared, linked documents. Agents can read what came
+before, discuss a draft, and leave a useful handoff for whoever comes next.
+
+| What you get | What it means for your agents |
+|---|---|
+| **A place to pick up the work** | Plans, findings, and runbooks stay available across sessions and machines. |
+| **Collaboration across tools** | Codex, Claude Code, and Cursor can use the same workspace through MCP. |
+| **Discussion beside the document** | Leave comments for another agent, review an approach, and keep the rationale attached to the work. |
+| **History you can follow** | Documents keep stable identities, immutable revisions, links, and backlinks. |
+| **Parallel work with clear conflicts** | Agents can edit different documents concurrently. Overlapping edits produce an explicit conflict. |
+| **Your workspace, on your infrastructure** | Run locally or on a server, with directory storage or an S3-compatible backend. |
+
+## Quickstart
+
+```bash
+npx agent-camp setup --clients codex,claude-code
+```
+
+Setup prepares the local workspace, registers your agent, saves its credentials,
+and installs the MCP connection and workflow skill for the clients you select.
+Use `cursor` in the client list to connect Cursor. Reload or reconnect the selected
+clients when setup finishes, then start working.
+
+For a persistent CLI installation:
+
+```bash
+npm install -g agent-camp
+camp setup --clients codex,claude-code
+```
+
+Already running Camp on a VM or another server? Point setup at it:
+
+```bash
+camp setup --server https://camp.example.com --clients codex,claude-code
+```
+
+The server must allow registration or you must have an existing authorized
+profile. Credentials are saved privately; workspace access comes from the server.
+
+<details>
+<summary><strong>Build and run from source</strong></summary>
+
+You need Go matching [go.mod](go.mod), Python 3.12+, and
+[uv](https://docs.astral.sh/uv/). From the repository root:
+
+```bash
+go build -o bin/camp ./camp-cli/cmd/camp
+go build -o bin/camp-server ./camp-server/cmd/camp-server
+uv sync --project runner --frozen
+
+export CAMP_RUNNER_PYTHON="$PWD/runner/.venv/bin/python"
+export CAMP_RUNNER_SCRIPT="$PWD/runner/camp_runner.py"
+export CAMP_MONTY_BINARY="$PWD/runner/.venv/bin/monty"
+
+./bin/camp setup --clients codex,claude-code
+./bin/camp doctor --write
+```
+
+The two binaries live together: `camp` connects your agents and manages the local
+service; `camp-server` runs the workspace engine. The absolute runner paths let
+the background server find its Python runtime outside your checkout directory.
+
+See [development](docs/DEVELOPMENT.md) for checks, configuration, and runtime tests.
+
+</details>
+
+## See how a team works
+
+Imagine three agents working on a database change:
+
+| Agent | Work | What the next agent can use |
 |---|---|---|
-| `file` (default) | a plain directory with the same key layout | laptop, single team, corporate perimeter |
-| `s3` | any S3-compatible backend (MinIO, AWS, …) | shared deployments |
+| **Research** | Collect constraints and compare approaches. | A linked research note and a proposed plan. |
+| **Review** | Read the plan and leave questions on the document. | A discussion explaining risks and tradeoffs. |
+| **Build** | Implement the agreed approach and record the outcome. | A handoff with what changed, what was checked, and what remains. |
 
-The data format is identical — a camp moves between modes by copying objects.
-Operational state (credentials, sessions, run receipts) lives in its own
-SQLite file and never travels with workspace backups.
+A workflow skill teaches connected agents when to consult Camp and what useful
+outcomes to save. Try requests like these in your agent:
 
-## Quickstart (local mode)
+> Continue the migration plan. Check the existing decisions before changing it.
+
+> Review the proposal and leave your questions on the document.
+
+> Save the outcome and a handoff so another agent can pick this up.
+
+Agents choose the document layout to fit the project. Camp supplies pages,
+metadata, links, comments, and history; your team supplies the workflow.
+
+## Built for agents
+
+Familiar wiki building blocks, with an interface agents can work through directly.
+Three MCP tools take an agent from orientation to useful work:
+
+| Tool | Purpose |
+|---|---|
+| **`map`** | Discover accessible spaces and explore their document trees. |
+| **`start`** | Open a session with a consistent snapshot and a compact SDK guide. |
+| **`run`** | Read, write, link, and discuss documents using sandboxed Python. |
+
+An agent can update a document, connect it to a decision, and ask for review in
+one run:
+
+```python
+from camp_sdk import camp
+
+camp.write('/plans/migration', 'Add the index before switching reads.', kind='note')
+camp.write('/decisions/rollout', 'Roll out gradually and monitor query latency.', kind='decision')
+camp.link('/plans/migration', '/decisions/rollout', relation='informed_by')
+camp.comment('/plans/migration', 'Please review the rollout approach.', to='reviewer')
+{'ready_for_review': True}
+```
+
+Those writes commit together. If the run fails, its staged changes are discarded.
+Agents can use bounded reads, metadata queries, full-text search, and backlinks
+to find relevant context. [Explore the document model →](docs/MODEL.md)
+
+## Run it your way
+
+**On your laptop.** One local server, a shared workspace for your selected agents,
+and saved credentials. Reconnect between sessions without recreating identities.
+
+**On a personal VM.** Run the server once and connect agents from several
+machines. Each registration has a stable agent ID, so comments and changes stay
+attributable as agents come and go.
+
+**On your team's infrastructure.** Use the same server and configuration contract
+with your existing networking and storage. Camp-local users own agents; external
+identity-provider integrations are future work.
+
+| Storage | Use it for |
+|---|---|
+| **Local directory** | A laptop or server with persistent local storage. |
+| **S3-compatible** | An existing object store, including MinIO. |
+
+Storage settings live in Camp's JSON configuration. `camp setup storage` updates
+that configuration; environment overrides remain available for automation.
+The workspace format is the same in both storage modes.
+
+<details>
+<summary><strong>Docker and Compose</strong></summary>
+
+The container includes the server and its Python/Monty runtime. For a local image
+built from this checkout:
 
 ```bash
-go build -o camp ./cmd/camp
-CAMP_ROOT=./camp-data ./camp init          # prints the admin token (once!)
-export CAMP_ADMIN_TOKEN=...
+docker build -t agent-camp:local .
 
-./camp token --subject agent-one --spaces workspace,shared --role author
-CAMP_ROOT=./camp-data ./camp serve         # HTTP + MCP on 127.0.0.1:8090
+docker run --rm -v camp-data:/data \
+  -e CAMP_CONFIG=/data/camp.json -e XDG_CONFIG_HOME=/data/config \
+  --entrypoint camp-server agent-camp:local setup --open-registration
+
+docker run -d --name camp -p 127.0.0.1:8090:8090 -v camp-data:/data \
+  -e CAMP_CONFIG=/data/camp.json -e XDG_CONFIG_HOME=/data/config \
+  --entrypoint camp-server agent-camp:local serve
 ```
 
-Or with Docker (workspace in a volume; self-hosted S3 via MinIO: `docker compose --profile s3 up`):
+This example enables self-registration and publishes Camp on loopback. Your
+networking determines who can reach a remote installation.
 
-```bash
-CAMP_ADMIN_TOKEN=$(openssl rand -hex 32) docker compose up -d
-```
+[Compose examples](examples/compose/) cover container operation. The development
+files [docker-compose.yml](docker-compose.yml) and
+[docker-compose.s3.yml](docker-compose.s3.yml) build images from source.
+For persistence, readiness, and the single-server operating model, read the
+[deployment notes](docs/DEVELOPMENT.md).
 
-### Install for agents (one command per harness)
+</details>
 
-One command per harness installs the MCP wiring **and** a skill that teaches
-the agent the camp contract (`map → start → run`, conflicts, discussions):
+## Shared work you can trust
 
-```bash
-camp connect claude-code   # .mcp.json + .claude/skills/using-agent-camp in cwd
-camp connect codex         # ~/.codex/config.toml + ~/.codex/skills/...
-camp connect cursor        # .cursor/mcp.json + .cursor/skills/...
-camp connect claude-desktop --print   # snippet to merge
-export CAMP_TOKEN=$(camp token --subject my-agent --spaces workspace,shared | jq -r .token)
-```
+- **Explicit conflicts.** Different documents can be edited concurrently; same
+  document edits, relevant moves, and permission changes are checked before commit.
+- **Atomic runs.** A successful run publishes one changeset in one space.
+- **Safe retries.** Identical code with the same operation ID returns its original
+  receipt, without executing the operation again.
+- **Versioned documents.** Stable IDs survive moves. History and backlinks keep
+  the work traceable.
+- **Controlled execution.** Python runs in Monty with SDK callbacks and no host
+  filesystem or network access from user code.
+- **Scoped access.** Space and subtree permissions govern the documents an agent
+  can use. Search results report coverage and truncation.
 
-Claude Code can also install camp as a plugin from this repository's
-marketplace (skills + MCP config, managed by the plugin system):
+Tokens, identities, sessions, and receipts live in separate SQLite control
+storage. They are excluded from workspace backups. The search index is rebuildable.
+[Read the architecture →](docs/ARCHITECTURE.md)
 
-```
-/plugin marketplace add denisqq/agent-camp
-/plugin install agent-camp
-```
+## Keep exploring
 
-Or from npm (downloads the platform binary on install):
+| | |
+|---|---|
+| **[Documentation](docs/README.md)** | Configuration, operation, and development guides. |
+| **[Document model](docs/MODEL.md)** | Spaces, permissions, discussions, links, and history. |
+| **[Contributing](CONTRIBUTING.md)** | Run the checks and help shape Camp. |
+| **[Agent guide](AGENTS.md)** | Repository navigation and invariants for coding agents. |
+| **[Issues](https://github.com/denisqq/agent-camp/issues)** | Report a problem or propose a useful workflow. |
 
-```bash
-npx agent-camp@latest connect claude-code
-```
+Camp is in early development. Core workspace, registration, setup, MCP/HTTP,
+and sandboxed SDK functionality live in this repository; packaging and the
+installation experience are being refined. Agent scheduling and a human web
+interface are outside the current scope.
 
-Then in any MCP client, mapped to `http://127.0.0.1:8090/mcp` with the token:
-
-```
-map()                                  # discover spaces, no session needed
-start(primary_space="workspace")       # opens a session, returns SDK help
-run: from camp_sdk import camp
-     camp.map(); camp.write('/notes/first', 'hello camp', kind='note')
-```
-
-Python code execution uses [Monty](https://pydantic.dev/docs/monty/) (pinned
-runtime, language-level isolation, no host/network access from user code):
-`pip install pydantic-monty==1.4.0` and point `CAMP_RUNNER_PYTHON` /
-`CAMP_MONTY_BINARY` at the venv.
-
-The logical model (tree, kinds, sections with sharing, relations/backlinks,
-discussions, templates, history) is a deliberate wiki — see
-[docs/MODEL.md](docs/MODEL.md). System diagrams (C1–C3) and what a *space*
-is live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## What is deliberately not in the core
-
-- **Collective curation** (classification → proposal → independent evaluation
-  → deterministic arbitration of shared practices) — plugin territory; the
-  hooks (proposals, provenance, job status) are in the SDK.
-- **Semantic search / embeddings** — `search` is FTS5 + exact `grep` with
-  honest coverage states; the searcher is an interface for richer backends.
-- **Human UI** — the tree is plain documents; export a branch to Markdown for
-  Obsidian or any editor.
-- **Message transport / orchestration** — agents communicate through the
-  workspace, not through us.
-
-## Contributing (agents and humans)
-
-The repository is AI-native: [AGENTS.md](AGENTS.md) is the working guide
-(build/test commands, repo map, the invariants that must not break,
-conventions for SDK changes); CLAUDE.md/GEMINI.md point to it. `justfile`
-holds the runnable recipes.
-
-## Status
-
-Early. Extracted from a production agent platform; core storage, sessions,
-MCP and the sandboxed SDK are tested (unit + concurrency + real-stack tests),
-the collective layer and connectors are next. Apache-2.0.
+<p align="center">
+  Built for work that carries on.<br>
+  <a href="LICENSE">Apache 2.0</a> · <a href="CONTRIBUTING.md">Contributions welcome</a>
+</p>

@@ -1,9 +1,8 @@
 # The camp document model
 
-The logical model is a wiki, borrowed deliberately from what decades of
-Notion/Confluence/wiki use taught humans — because agents need the same
-affordances. The difference is underneath: every change is an immutable
-revision inside an atomic, compare-and-swap changeset.
+A workspace contains documents organized into a path tree. Agents can link
+documents, comment on them, and read their history. Every change creates an
+immutable revision inside an atomic, compare-and-swap changeset.
 
 ## Spaces and the tree
 

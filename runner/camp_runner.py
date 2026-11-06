@@ -123,14 +123,14 @@ class Camp:
 
 
 class Files:
-    def __init__(self, brain):
-        self._brain = brain
+    def __init__(self, camp):
+        self._camp = camp
 
     def attach(self, path, handle):
-        return self._brain._call("files.attach", dict(path=path, handle=handle))
+        return self._camp._call("files.attach", dict(path=path, handle=handle))
 
     def read_chunk(self, path, offset=0, size=65536, space=""):
-        result = self._brain._call("files.read_chunk", dict(path=path, offset=offset, size=size, space=space))
+        result = self._camp._call("files.read_chunk", dict(path=path, offset=offset, size=size, space=space))
         return base64.b64decode(result["base64"], validate=True)
 
 

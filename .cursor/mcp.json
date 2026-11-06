@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trail": {
+      "command": "npx",
+      "args": ["--yes", "@trailhq/trail-code@0.28.1", "mcp"],
+      "env": { "DO_NOT_TRACK": "1" }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+[mcp_servers.trail]
+command = "npx"
+args = ["--yes", "@trailhq/trail-code@0.28.1", "mcp"]
+startup_timeout_sec = 60
+
+[mcp_servers.trail.env]
+DO_NOT_TRACK = "1"

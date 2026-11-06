@@ -14,7 +14,7 @@ vet:
 check: build test vet
 
 smoke:
-	go build -o /tmp/camp ./cmd/camp
+	go build -o /tmp/camp ./camp-cli/cmd/camp
 	rm -rf /tmp/campdata && CAMP_ROOT=/tmp/campdata /tmp/camp init
 	CAMP_ROOT=/tmp/campdata CAMP_LISTEN=127.0.0.1:18090 /tmp/camp serve &
 	sleep 1
@@ -23,3 +23,13 @@ smoke:
 
 docker-build:
 	docker build -t agent-camp:dev .
+
+# Optional source-code navigation; keep the version in sync with MCP configs.
+code-index:
+	DO_NOT_TRACK=1 npx --yes @trailhq/trail-code@0.28.1 build
+
+code-index-check:
+	DO_NOT_TRACK=1 npx --yes @trailhq/trail-code@0.28.1 build --check
+
+code-map:
+	DO_NOT_TRACK=1 npx --yes @trailhq/trail-code@0.28.1 map
