@@ -66,8 +66,9 @@ test('launcher promotes vendor binaries to the permanent install dir and propaga
   assert.equal(out.status, 42, 'stderr=' + out.stderr)
   // The permanent directory holds BOTH binaries; MCP configs point here,
   // never into the npm cache.
-  assert.ok(fs.existsSync(path.join(scratch, 'perm-bin', '0.1.0', 'camp')))
-  assert.ok(fs.existsSync(path.join(scratch, 'perm-bin', '0.1.0', 'camp-server')))
+  const version = require('../package.json').version
+  assert.ok(fs.existsSync(path.join(scratch, 'perm-bin', version, 'camp')))
+  assert.ok(fs.existsSync(path.join(scratch, 'perm-bin', version, 'camp-server')))
 })
 
 test('installer fails closed on unreachable release base', () => {
@@ -186,3 +187,25 @@ test('permanent binaries survive removal of the npm vendor cache', () => {
  out=runCamp(scratch,[],{CAMP_INSTALL_DIR:dir,CAMP_RELEASE_BASE:'http://127.0.0.1:9/unreachable'})
  assert.equal(out.status,0,out.stderr.toString())
 })
+
+for (const missing of ['camp', 'camp-server']) {
+  test(`launcher repairs missing permanent ${missing}`, (t) => {
+    const scratch = scratchPackage()
+    t.after(() => fs.rmSync(scratch, { recursive: true, force: true }))
+    const version = require('../package.json').version
+    const vendor = vendorDir(scratch, process.platform, process.arch)
+    const permanent = path.join(scratch, 'permanent')
+    const installed = path.join(permanent, version)
+    fs.mkdirSync(vendor, { recursive: true })
+    fs.mkdirSync(installed, { recursive: true })
+    for (const name of ['camp', 'camp-server']) {
+      fs.writeFileSync(path.join(vendor, name), '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+      if (name !== missing) fs.copyFileSync(path.join(vendor, name), path.join(installed, name))
+    }
+    const result = runCamp(scratch, ['--version'], { CAMP_INSTALL_DIR: permanent })
+    assert.equal(result.status, 0, result.stderr.toString())
+    for (const name of ['camp', 'camp-server']) {
+      assert.equal(fs.readFileSync(path.join(installed, name), 'utf8'), fs.readFileSync(path.join(vendor, name), 'utf8'))
+    }
+  })
+}

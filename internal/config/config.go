@@ -191,6 +191,12 @@ func Load(path string, o Overrides) (Config, error) {
 	if v := env("CAMP_STORE"); v != "" {
 		cfg.Storage.Mode = v
 	}
+	if v := env("CAMP_S3_ENDPOINT"); v != "" {
+		cfg.Storage.Endpoint = v
+	}
+	if v := env("CAMP_S3_BUCKET"); v != "" {
+		cfg.Storage.Bucket = v
+	}
 	if v := env("CAMP_ROOT"); v != "" {
 		cfg.Storage.Root = filepath.Join(v, "objects")
 		cfg.DataRoot = v

@@ -31,7 +31,20 @@ try {
         fs.copyFileSync(path.join(vendor, b), path.join(stage, b))
         fs.chmodSync(path.join(stage, b), 0o755)
       }
-      try { fs.renameSync(stage, dir) } catch (err) { if (!complete(dir)) throw err }
+      try {
+        fs.renameSync(stage, dir)
+      } catch (err) {
+        if (!['EEXIST', 'ENOTEMPTY'].includes(err.code)) throw err
+        // Repair missing files without removing an executable another process
+        // may be using. Hard links publish complete staged files atomically;
+        // concurrent repairers can safely find a file already installed.
+        for (const b of binaries) {
+          try { fs.linkSync(path.join(stage, b), path.join(dir, b)) } catch (linkErr) {
+            if (linkErr.code !== 'EEXIST') throw linkErr
+          }
+        }
+        if (!complete(dir)) throw err
+      }
     } finally { fs.rmSync(stage, { recursive: true, force: true }) }
   }
   const result = spawnSync(path.join(dir, binaries[0]), process.argv.slice(2), { stdio: 'inherit', env: process.env })

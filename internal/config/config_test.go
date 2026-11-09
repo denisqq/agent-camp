@@ -267,3 +267,16 @@ func TestRelativeConfigLocationProducesAbsolutePaths(t *testing.T) {
 		t.Fatalf("relative config leaves relative server paths: %+v", loaded)
 	}
 }
+
+func TestS3EnvironmentConfiguresFreshInstallation(t *testing.T) {
+	t.Setenv("CAMP_STORE", "s3")
+	t.Setenv("CAMP_S3_ENDPOINT", "http://storage.example:9000")
+	t.Setenv("CAMP_S3_BUCKET", "workspace")
+	cfg, err := Load(filepath.Join(t.TempDir(), "camp.json"), Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Storage.Endpoint != "http://storage.example:9000" || cfg.Storage.Bucket != "workspace" {
+		t.Fatalf("S3 environment ignored: %+v", cfg.Storage)
+	}
+}

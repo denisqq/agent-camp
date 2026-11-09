@@ -78,12 +78,16 @@ The npm launcher installs both executables atomically into
 `~/.camp/bin/<version>/` (`CAMP_INSTALL_DIR` overrides the parent). MCP client
 settings contain an absolute path into that permanent directory. Previous
 versions remain available for clients already configured to use them.
+If one executable is missing from an installed version, rerunning the npm
+launcher restores it from the verified package without removing the other one.
 
 Client profiles and credentials use the OS configuration directory under Camp;
 `CAMP_CLIENT_CONFIG_DIR` overrides that Camp directory for isolated installs.
 Verified runtimes are installed under its `runtimes/` directory, outside
 OS/npm caches. Tokens stay in private credential files, never in MCP settings.
 Configuration stores resolved Python/adapter/Monty paths.
+For an S3 deployment, `CAMP_STORE=s3`, `CAMP_S3_ENDPOINT`, and `CAMP_S3_BUCKET`
+configure storage before setup validation, including on an empty config volume.
 
 Setup state is per server URL, including scheme, host, port and path. Returning
 to an endpoint reuses its saved identity after checking the credential. Local
