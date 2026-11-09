@@ -89,3 +89,16 @@ A regression test also covers installation under a symlinked cache directory
 
 `actionlint` passed for both CI/release workflows. CLI/server dependency
 boundaries were checked with `go list -deps`; neither binary imports the other.
+
+First PR CI: ordinary tests and Linux ARM64 native installation passed. The
+container acceptance itself passed, but its EXIT cleanup failed on UID-10001
+private files under an unprivileged GitHub runner. Cleanup now removes only
+the smoke's mounted directories using a temporary root container before deleting
+the runner-owned parent. This does not change product file permissions.
+
+The macOS native smoke reached server startup but registration returned 400.
+The installer used the unbounded machine hostname as its default display name,
+while the registration API limits names to 64 bytes. Added a failing long-hostname
+regression and bounded that default. Smoke retains the default name and reports
+hostname byte length to validate that diagnosis on CI; its temporary root is
+canonicalized for macOS `/private/var` paths.

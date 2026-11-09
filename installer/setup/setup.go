@@ -367,5 +367,13 @@ func defaultAgentName() string {
 	if err != nil || host == "" {
 		return "camp-agent"
 	}
+	return agentNameForHost(host)
+}
+
+// Hostnames can exceed the registration API's 64-byte display-name limit.
+func agentNameForHost(host string) string {
+	if len(host) > 64 {
+		host = host[:64]
+	}
 	return host
 }

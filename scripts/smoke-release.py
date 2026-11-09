@@ -91,7 +91,7 @@ def main():
     package = json.loads((ROOT / "installer/npm/package.json").read_text())
     assert version == "v" + package["version"], "npm and release versions differ"
     with tempfile.TemporaryDirectory(prefix="camp release smoke ") as tmp:
-        work = Path(tmp)
+        work = Path(tmp).resolve()
         releases = work / "releases" / version
         releases.mkdir(parents=True)
         for archive in artifacts.glob("*.tar.gz"):
@@ -130,6 +130,7 @@ def main():
         command = ["npx", "--yes", "--package", str(pkg / tarball), "camp"]
         launcher = None
         try:
+            print(f"Native hostname length: {len(socket.gethostname().encode())} bytes", flush=True)
             run([*command, "setup", "--clients", "cursor"], client, env)
             profile = json.loads((work / "private/profiles/profile-local.json").read_text())
             entry = json.loads((client / ".cursor/mcp.json").read_text())["mcpServers"]["agent-camp"]

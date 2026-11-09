@@ -10,7 +10,16 @@ cd "$(dirname "$0")/.."
 image="agent-camp:smoke"
 port="$((20000 + RANDOM % 20000))"
 work="$(mktemp -d)"
-trap 'rm -rf "$work"; docker rm -f camp-smoke >/dev/null 2>&1 || true' EXIT
+cleanup() {
+  docker rm -f camp-smoke >/dev/null 2>&1 || true
+  # The image writes private files as UID 10001. Remove only this smoke's
+  # mounted directories from a temporary root container, so a non-root CI
+  # runner can remove its own temporary parent afterward.
+  docker run --rm --user 0:0 -v "$work:/smoke" --entrypoint /bin/sh "$image" \
+    -c 'rm -rf /smoke/config /smoke/data /smoke/home' >/dev/null 2>&1 || true
+  rm -rf "$work"
+}
+trap cleanup EXIT
 mkdir -p "$work/config" "$work/data" "$work/home"
 chmod -R 777 "$work"
 

@@ -338,3 +338,11 @@ func TestExplicitRegistrationReplacesRevokedSetupCredential(t *testing.T) {
 		t.Fatalf("explicit replacement ignored: %+v", result)
 	}
 }
+
+func TestLongHostnameFitsRegistrationLimit(t *testing.T) {
+	host := strings.Repeat("runner-", 15) + ".local"
+	name := agentNameForHost(host)
+	if len(name) == 0 || len(name) > 64 {
+		t.Fatalf("default registration name has %d bytes; server limit is 64", len(name))
+	}
+}
