@@ -1,5 +1,5 @@
 # Local workspace storage, development build. For the published-image flow
-# see examples/compose/local.yaml (config mount + `setup server` + serve).
+# see examples/compose/local.yaml (config mount + `setup` + serve).
 services:
   camp:
     build: .
@@ -10,7 +10,7 @@ services:
     volumes:
       - camp-config:/config
       - camp-data:/data
-    command: ["camp-server", "init-and-serve"]
+    command: ["init-and-serve"]
 
 volumes:
   camp-config:

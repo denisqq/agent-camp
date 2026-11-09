@@ -57,8 +57,9 @@ npx agent-camp setup --clients codex,claude-code
 
 Setup prepares the local workspace, registers your agent, saves its credentials,
 and installs the MCP connection and workflow skill for the clients you select.
-Use `cursor` in the client list to connect Cursor. Reload or reconnect the selected
-clients when setup finishes, then start working.
+Use `cursor` in the client list to connect Cursor. Native packages target Linux
+and macOS on x86-64 and ARM64. Reload or reconnect the selected clients when setup
+finishes, then start working.
 
 For a persistent CLI installation:
 
@@ -233,9 +234,9 @@ storage. They are excluded from workspace backups. The search index is rebuildab
 | **[Issues](https://github.com/denisqq/agent-camp/issues)** | Report a problem or propose a useful workflow. |
 
 Camp is in early development. Core workspace, registration, setup, MCP/HTTP,
-and sandboxed SDK functionality live in this repository; packaging and the
-installation experience are being refined. Agent scheduling and a human web
-interface are outside the current scope.
+and sandboxed SDK functionality live in this repository.
+[Release checks and publishing](docs/RELEASING.md) describe the installation
+pipeline. Agent scheduling and a human web interface are outside the current scope.
 
 <p align="center">
   Built for work that carries on.<br>

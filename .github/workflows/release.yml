@@ -2,51 +2,153 @@ name: release
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'camp-cli/**'
+      - 'camp-server/**'
+      - 'installer/**'
+      - 'internal/**'
+      - 'runner/**'
+      - 'scripts/**'
+      - 'Dockerfile'
+      - 'go.*'
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  binaries:
-    runs-on: ubuntu-latest
+  native:
+    name: Install on ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - { goos: linux, goarch: amd64 }
-          - { goos: linux, goarch: arm64 }
-          - { goos: darwin, goarch: amd64 }
-          - { goos: darwin, goarch: arm64 }
+          - { os: ubuntu-22.04, platform: linux-amd64 }
+          - { os: ubuntu-22.04-arm, platform: linux-arm64 }
+          - { os: macos-15, platform: darwin-arm64 }
+          - { os: macos-15-intel, platform: darwin-amd64 }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: "1.27" }
-      - run: |
-          CGO_ENABLED=0 go build -trimpath -o camp ./camp-cli/cmd/camp
-          CGO_ENABLED=0 go build -trimpath -o camp-server ./camp-server/cmd/camp-server
-        env: { GOOS: "${{ matrix.goos }}", GOARCH: "${{ matrix.goarch }}" }
-      - run: tar -czf camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz camp camp-server
-      - run: sha256sum camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz > camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz.sha256
-      - uses: softprops/action-gh-release@v2
+        with: { go-version-file: go.mod }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - uses: astral-sh/setup-uv@v5
+        with: { version: '0.11.26' }
+      - name: Match npm version to release tag
+        shell: bash
+        run: |
+          version="v$(node -p "require('./installer/npm/package.json').version")"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "$version"
+          fi
+          echo "CAMP_BUILD_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Build the native executable pair
+        shell: bash
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "-X github.com/denisqq/agent-camp/internal/buildinfo.Version=$CAMP_BUILD_VERSION" -o dist/camp ./camp-cli/cmd/camp
+          go build -trimpath -ldflags "-X github.com/denisqq/agent-camp/internal/buildinfo.Version=$CAMP_BUILD_VERSION" -o dist/camp-server ./camp-server/cmd/camp-server
+          tar -czf "dist/camp-${{ matrix.platform }}.tar.gz" -C dist camp camp-server
+          shasum -a 256 "dist/camp-${{ matrix.platform }}.tar.gz" > "dist/camp-${{ matrix.platform }}.tar.gz.sha256"
+      - name: Build the matched Python and Monty runtime
+        run: scripts/build-runtime.sh "$CAMP_BUILD_VERSION" dist
+      - name: Test the npm launcher
+        run: node --test installer/npm/test/*.test.js
+      - name: Install from packaged artifacts and write through MCP
+        run: python3 scripts/smoke-release.py dist "$CAMP_BUILD_VERSION"
+      - uses: actions/upload-artifact@v4
         with:
-          files: |
-            camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
-            camp-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz.sha256
+          name: release-${{ matrix.platform }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
 
-  runtime-packs:
-    # Server runtime packs must be built on the target OS/arch: a Go
-    # cross-build is not acceptance for the Python/Monty runtime.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - { os: ubuntu-latest, platform: linux-amd64 }
-          - { os: ubuntu-24.04-arm, platform: linux-arm64 }
-          - { os: macos-latest, platform: darwin-arm64 }
-          - { os: macos-13, platform: darwin-amd64 }
+  container-check:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: scripts/build-runtime.sh .
+      - name: Build, write, replace container, reconnect
+        run: scripts/smoke-container.sh
+
+  github-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [native, container-check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
-            camp-runtime-*-${{ matrix.platform }}.tar.gz
-            camp-runtime-*-${{ matrix.platform }}.tar.gz.sha256
+            dist/*.tar.gz
+            dist/*.sha256
+
+  npm:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: github-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - name: Publish through npm Trusted Publishing
+        working-directory: installer/npm
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            npm publish --access public --tag next
+          else
+            npm publish --access public
+          fi
+        env:
+          # Optional, short-lived bootstrap credential for the first publication.
+          # Subsequent releases use the configured npm OIDC trusted publisher.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  image:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: github-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: CAMP_VERSION=${{ github.ref_name }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

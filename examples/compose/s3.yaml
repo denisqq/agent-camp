@@ -2,11 +2,9 @@
 # S3-compatible service you already run). Replace the endpoint, bucket,
 # and credentials with your own; Camp never provisions storage.
 #
-#   docker compose -f examples/compose/s3.yaml pull
-#   docker compose -f examples/compose/s3.yaml run --rm camp \
-#     setup server --mode s3 --endpoint http://s3:9000 --bucket camp \
-#     --region us-east-1 --credentials-ref s3-primary \
-#     --access-key "$KEY" --secret-key "$SECRET"
+#   docker compose -f examples/compose/s3.yaml run --rm camp setup --open-registration
+# Configure CAMP_S3_ENDPOINT, CAMP_S3_BUCKET and AWS credentials below before
+# setup/serve. The existing bucket must already exist.
 #   docker compose -f examples/compose/s3.yaml up -d
 services:
   camp:
@@ -18,23 +16,14 @@ services:
       - camp-control:/data
     environment:
       CAMP_CONFIG: /config/camp.json
-    command: ["camp-server", "serve"]
-
-  s3:
-    image: quay.io/minio/minio:latest
-    command: server /data
-    environment:
-      MINIO_ROOT_USER: ${CAMP_S3_ACCESS_KEY:?set CAMP_S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${CAMP_S3_SECRET_KEY:?set CAMP_S3_SECRET_KEY}
-    volumes:
-      - camp-objects:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      CAMP_STORE: s3
+      CAMP_S3_ENDPOINT: ${CAMP_S3_ENDPOINT:?set CAMP_S3_ENDPOINT}
+      CAMP_S3_BUCKET: ${CAMP_S3_BUCKET:?set CAMP_S3_BUCKET}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${CAMP_S3_ACCESS_KEY:?set CAMP_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${CAMP_S3_SECRET_KEY:?set CAMP_S3_SECRET_KEY}
+    command: ["serve"]
 
 volumes:
   camp-config:
   camp-control:
-  camp-objects:

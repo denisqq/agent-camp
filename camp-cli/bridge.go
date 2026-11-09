@@ -72,7 +72,7 @@ func bridgeRun(ctx context.Context, profileName string) error {
 			Description: tool.Description,
 			Annotations: tool.Annotations,
 			InputSchema: tool.InputSchema,
-		}, func(ctx context.Context, req *mcp.CallToolRequest, in json.RawMessage) (*mcp.CallToolResult, json.RawMessage, error) {
+		}, func(ctx context.Context, req *mcp.CallToolRequest, in json.RawMessage) (*mcp.CallToolResult, map[string]any, error) {
 			var arguments map[string]any
 			if len(in) > 0 {
 				if err := json.Unmarshal(in, &arguments); err != nil {
@@ -83,9 +83,11 @@ func bridgeRun(ctx context.Context, profileName string) error {
 			if err != nil {
 				return nil, nil, err
 			}
-			var structured json.RawMessage
+			var structured map[string]any
 			if raw, err := json.Marshal(result.StructuredContent); err == nil && result.StructuredContent != nil {
-				structured = raw
+				if err := json.Unmarshal(raw, &structured); err != nil {
+					return nil, nil, err
+				}
 			}
 			out := &mcp.CallToolResult{Content: result.Content, IsError: result.IsError, StructuredContent: result.StructuredContent}
 			return out, structured, nil

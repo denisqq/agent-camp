@@ -16,7 +16,7 @@ services:
       - "127.0.0.1:8090:8090"
     volumes:
       - camp-s3-control:/data
-    command: ["camp-server", "init-and-serve"]
+    command: ["init-and-serve"]
     depends_on:
       minio:
         condition: service_healthy

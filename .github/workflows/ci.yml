@@ -15,6 +15,9 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install uv==0.9.9
       - run: uv sync --project runner --frozen
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - run: node --test installer/npm/test/*.test.js
       - run: go build ./...
       - run: go test -count=1 ./...
       - run: go test -race -count=1 ./...

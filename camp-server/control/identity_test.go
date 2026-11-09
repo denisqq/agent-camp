@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -131,5 +132,28 @@ func TestIdentityRecordsExcludedFromWorkspaceBackup(t *testing.T) {
 	// internal/camp/backup_identity_test.go.
 	if _, err := s.User(ctx, "user-backup"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDuplicateIdentityReturnsConflictWithoutReplacing(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	original := camp.User{ID: "owner", DisplayName: "original"}
+	if err := s.CreateUser(ctx, original); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateUser(ctx, camp.User{ID: "owner", DisplayName: "replacement"}); !errors.Is(err, camp.ErrConflict) {
+		t.Fatalf("duplicate user: %v", err)
+	}
+	got, err := s.User(ctx, "owner")
+	if err != nil || got.DisplayName != "original" {
+		t.Fatalf("existing identity replaced: %+v %v", got, err)
+	}
+	a := camp.Agent{ID: "agent", OwnerUserID: "owner", DisplayName: "original", Status: "active"}
+	if err := s.CreateAgent(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateAgent(ctx, a); !errors.Is(err, camp.ErrConflict) {
+		t.Fatalf("duplicate agent: %v", err)
 	}
 }

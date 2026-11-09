@@ -232,3 +232,51 @@ func TestCredentialRefNotASecretField(t *testing.T) {
 		t.Fatalf("config must not embed secret material: %+v", cfg.Storage)
 	}
 }
+
+func TestRunnerPathsResolveRelativeToConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "camp.json")
+	cfg := Defaults(dir)
+	cfg.RunnerPython = filepath.Join(dir, "runtime/bin/python")
+	cfg.RunnerScript = filepath.Join(dir, "runtime/adapter/camp_runner.py")
+	cfg.RunnerMonty = filepath.Join(dir, "runtime/bin/monty")
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path, Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.RunnerPython != cfg.RunnerPython || loaded.RunnerScript != cfg.RunnerScript || loaded.RunnerMonty != cfg.RunnerMonty {
+		t.Fatalf("runner paths changed across save/load: %+v", loaded)
+	}
+}
+
+func TestRelativeConfigLocationProducesAbsolutePaths(t *testing.T) {
+	t.Chdir(t.TempDir())
+	path := filepath.Join("settings", "camp.json")
+	cfg := Defaults(filepath.Join("settings", "data"))
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path, Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(loaded.Path) || !filepath.IsAbs(loaded.DataRoot) || !filepath.IsAbs(loaded.RunnerPython) {
+		t.Fatalf("relative config leaves relative server paths: %+v", loaded)
+	}
+}
+
+func TestS3EnvironmentConfiguresFreshInstallation(t *testing.T) {
+	t.Setenv("CAMP_STORE", "s3")
+	t.Setenv("CAMP_S3_ENDPOINT", "http://storage.example:9000")
+	t.Setenv("CAMP_S3_BUCKET", "workspace")
+	cfg, err := Load(filepath.Join(t.TempDir(), "camp.json"), Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Storage.Endpoint != "http://storage.example:9000" || cfg.Storage.Bucket != "workspace" {
+		t.Fatalf("S3 environment ignored: %+v", cfg.Storage)
+	}
+}

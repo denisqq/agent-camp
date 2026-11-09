@@ -55,7 +55,7 @@ func (s *Store) CreateUser(ctx context.Context, u camp.User) error {
 			return err
 		}
 	}
-	res, err := s.db.ExecContext(ctx, "INSERT INTO users(id, record, created_at) VALUES(?,?,?)", u.ID, raw, u.CreatedAt.UTC().Format(time.RFC3339))
+	res, err := s.db.ExecContext(ctx, "INSERT INTO users(id, record, created_at) VALUES(?,?,?) ON CONFLICT(id) DO NOTHING", u.ID, raw, u.CreatedAt.UTC().Format(time.RFC3339))
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (s *Store) CreateAgent(ctx context.Context, a camp.Agent) error {
 	if _, err := s.User(ctx, a.OwnerUserID); err != nil {
 		return camp.ErrInvalid
 	}
-	res, err := s.db.ExecContext(ctx, "INSERT INTO agents(id, owner_user_id, record, created_at, status) VALUES(?,?,?,?,?)", a.ID, a.OwnerUserID, raw, a.CreatedAt.UTC().Format(time.RFC3339), a.Status)
+	res, err := s.db.ExecContext(ctx, "INSERT INTO agents(id, owner_user_id, record, created_at, status) VALUES(?,?,?,?,?) ON CONFLICT(id) DO NOTHING", a.ID, a.OwnerUserID, raw, a.CreatedAt.UTC().Format(time.RFC3339), a.Status)
 	if err != nil {
 		return err
 	}
