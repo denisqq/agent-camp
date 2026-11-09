@@ -11,12 +11,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/denisqq/agent-camp/internal/config"
 )
 
 // Profile describes one named server connection.
 type Profile struct {
 	Name          string `json:"name"`
 	ServerURL     string `json:"server_url"`
+	Workspace     string `json:"workspace,omitempty"`
 	UserID        string `json:"user_id,omitempty"`
 	AgentID       string `json:"agent_id,omitempty"`
 	CredentialRef string `json:"credential_ref,omitempty"`
@@ -42,13 +45,7 @@ func (p Profile) Validate() error {
 type Store struct{ Dir string }
 
 // DefaultDir returns the per-user profile directory.
-func DefaultDir() string {
-	if base, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(base, "camp", "profiles")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".camp", "profiles")
-}
+func DefaultDir() string { return filepath.Join(config.ClientDir(), "profiles") }
 
 func (s Store) path(name string) string {
 	return filepath.Join(s.Dir, "profile-"+name+".json")

@@ -10,18 +10,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/denisqq/agent-camp/internal/config"
 )
 
 type Store struct{ Dir string }
 
 // DefaultDir is the per-user private credential directory.
-func DefaultDir() string {
-	if base, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(base, "camp", "credentials")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".camp", "credentials")
-}
+func DefaultDir() string { return filepath.Join(config.ClientDir(), "credentials") }
 
 // Save stores the token privately under its reference. The ref, not the
 // token, appears in profiles and client configs.

@@ -232,3 +232,38 @@ func TestCredentialRefNotASecretField(t *testing.T) {
 		t.Fatalf("config must not embed secret material: %+v", cfg.Storage)
 	}
 }
+
+func TestRunnerPathsResolveRelativeToConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "camp.json")
+	cfg := Defaults(dir)
+	cfg.RunnerPython = filepath.Join(dir, "runtime/bin/python")
+	cfg.RunnerScript = filepath.Join(dir, "runtime/adapter/camp_runner.py")
+	cfg.RunnerMonty = filepath.Join(dir, "runtime/bin/monty")
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path, Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.RunnerPython != cfg.RunnerPython || loaded.RunnerScript != cfg.RunnerScript || loaded.RunnerMonty != cfg.RunnerMonty {
+		t.Fatalf("runner paths changed across save/load: %+v", loaded)
+	}
+}
+
+func TestRelativeConfigLocationProducesAbsolutePaths(t *testing.T) {
+	t.Chdir(t.TempDir())
+	path := filepath.Join("settings", "camp.json")
+	cfg := Defaults(filepath.Join("settings", "data"))
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path, Overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(loaded.Path) || !filepath.IsAbs(loaded.DataRoot) || !filepath.IsAbs(loaded.RunnerPython) {
+		t.Fatalf("relative config leaves relative server paths: %+v", loaded)
+	}
+}

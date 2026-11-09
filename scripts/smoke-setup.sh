@@ -15,6 +15,7 @@ go build -o "$work/camp" ./camp-cli/cmd/camp
 go build -o "$work/camp-server" ./camp-server/cmd/camp-server
 
 export CAMP_CONFIG="$work/server/camp.json"
+export CAMP_CLIENT_CONFIG_DIR="$work/server-private"
 mkdir -p "$work/server"
 "$work/camp-server" setup --open-registration >/dev/null
 CAMP_LISTEN="127.0.0.1:$port" "$work/camp-server" serve &
@@ -29,12 +30,12 @@ done
 # Five isolated client profiles: five users, five agents.
 laptop() {  # laptop <n> <args...>
   local n="$1"; shift
-  HOME="$work/home-$n" XDG_CONFIG_HOME="$work/home-$n/.config" "$work/camp" "$@"
+  CAMP_CLIENT_CONFIG_DIR="$work/home-$n/.config/camp" XDG_CONFIG_HOME="$work/home-$n/.config" "$work/camp" "$@"
 }
 declare -A agents
 for n in 1 2 3 4 5; do
   laptop "$n" register --server "$server" --name "same-laptop-name" --profile main >/dev/null
-  agents[$n]="$(HOME="$work/home-$n" XDG_CONFIG_HOME="$work/home-$n/.config" \
+  agents[$n]="$(CAMP_CLIENT_CONFIG_DIR="$work/home-$n/.config/camp" XDG_CONFIG_HOME="$work/home-$n/.config" \
     "$work/camp" doctor --profile main --json | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["agent_id"])')"
 done
 for n in 2 3 4 5; do
@@ -46,14 +47,14 @@ done
 # Reconnect all five: IDs unchanged, credentials still valid.
 for n in 1 2 3 4 5; do
   laptop "$n" doctor --profile main | grep -q "reachable+authorized"
-  now="$(HOME="$work/home-$n" XDG_CONFIG_HOME="$work/home-$n/.config" \
+  now="$(CAMP_CLIENT_CONFIG_DIR="$work/home-$n/.config/camp" XDG_CONFIG_HOME="$work/home-$n/.config" \
     "$work/camp" doctor --profile main --json | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["agent_id"])')"
   [[ "$now" == "${agents[$n]}" ]]
 done
 
 # One user registers a second agent: same user, distinct agent.
 laptop 1 register --server "$server" --name second-agent --profile second --as main >/dev/null
-u1="$(HOME="$work/home-1" XDG_CONFIG_HOME="$work/home-1/.config" \
+u1="$(CAMP_CLIENT_CONFIG_DIR="$work/home-1/.config/camp" XDG_CONFIG_HOME="$work/home-1/.config" \
   "$work/camp" doctor --profile main --json | python3 -c 'import json,sys; print(json.load(sys.stdin)[0].get("user_id",""))')"
 # (identity endpoint reports user via /v1/identity; verify through profile files)
 p1="$(python3 -c "import json;print(json.load(open('$work/home-1/.config/camp/profiles/profile-main.json'))['user_id'])")"

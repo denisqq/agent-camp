@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/denisqq/agent-camp/internal/buildinfo"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,7 @@ func NewRoot() *cobra.Command {
 			"transactional documents behind MCP and HTTP. This binary onboards you\n" +
 			"(setup, register), bridges agent clients, and manages the local service.\n" +
 			"The server itself runs as camp-server.",
+		Version:       buildinfo.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

@@ -1,8 +1,8 @@
 # Camp with directory storage. The same mounted configuration and data
-# serve both `setup server` and the running service.
+# serve both `setup` and the running service.
 #
 #   docker compose -f examples/compose/local.yaml pull
-#   docker compose -f examples/compose/local.yaml run --rm camp camp-server setup
+#   docker compose -f examples/compose/local.yaml run --rm camp setup --open-registration
 #   docker compose -f examples/compose/local.yaml up -d
 services:
   camp:
@@ -14,7 +14,7 @@ services:
       - camp-data:/data
     environment:
       CAMP_CONFIG: /config/camp.json
-    command: ["camp-server", "serve"]
+    command: ["serve"]
 
 volumes:
   camp-config:

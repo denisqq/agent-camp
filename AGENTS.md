@@ -25,8 +25,9 @@ go build ./...                     # must pass always
 go test -count=1 ./...             # unit + concurrency suites
 go test -race -count=1 ./...       # required before commits touching store/sessions/runner
 go vet ./...
-go build -o /tmp/camp ./camp-cli/cmd/camp # binary smoke:
-CAMP_ROOT=/tmp/campdata /tmp/camp init && CAMP_ROOT=/tmp/campdata /tmp/camp serve
+go build -o /tmp/camp ./camp-cli/cmd/camp
+go build -o /tmp/camp-server ./camp-server/cmd/camp-server
+/tmp/camp setup && /tmp/camp doctor --write # from checkout with runner installed
 docker build -t agent-camp .       # when touching Dockerfile or runner deps
 just <recipe>                      # see justfile
 ```
@@ -47,7 +48,7 @@ just <recipe>                      # see justfile
 | `docs/INDEXING.md`, `docs/DEVELOPMENT.md` | local code index, runtime tests, and development setup |
 
 Dependency direction: `camp-cli` imports only `installer/*` and the shared
-`internal/config` + `internal/credstore` — never the engine; `camp-server`
+`internal/config` + `internal/credstore` + `internal/buildinfo` — never the engine; `camp-server`
 imports the engine and `internal/credstore` — never `camp-cli`. Keep it
 that way (`go list -deps` is the check).
 

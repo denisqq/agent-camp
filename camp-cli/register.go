@@ -28,7 +28,7 @@ type agentRegistration struct {
 func registerOnServer(ctx context.Context, server, name, clientLabel, token string) (agentRegistration, error) {
 	var out agentRegistration
 	body, _ := json.Marshal(map[string]string{"name": name, "client": clientLabel})
-	req, err := http.NewRequest(http.MethodPost, strings.TrimSuffix(server, "/")+"/v1/agents/register", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(server, "/")+"/v1/agents/register", bytes.NewReader(body))
 	if err != nil {
 		return out, err
 	}
@@ -36,7 +36,7 @@ func registerOnServer(ctx context.Context, server, name, clientLabel, token stri
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}).Do(req)
 	if err != nil {
 		return out, fmt.Errorf("camp server at %s is unreachable: %w", server, err)
 	}
@@ -63,6 +63,23 @@ func (httpRegisterer) Register(ctx context.Context, server, name, clientLabel, e
 		return setup.Registration{}, err
 	}
 	return setup.Registration{UserID: reg.UserID, AgentID: reg.AgentID, Token: reg.Token, Workspace: reg.Workspace}, nil
+}
+
+func (httpRegisterer) Verify(ctx context.Context, server, token string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(server, "/")+"/v1/identity", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := (&http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("identity check returned %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // registerCmd registers an agent for an established user (or, on an
@@ -94,7 +111,11 @@ func registerCmd() *cobra.Command {
 }
 
 func registerRun(ctx context.Context, server, name, clientLabel, profileName, token, asProfile string) error {
-	server = strings.TrimSuffix(server, "/")
+	var err error
+	server, err = setup.NormalizeServer(server)
+	if err != nil {
+		return err
+	}
 	profileStore := profiles.Store{Dir: profiles.DefaultDir()}
 	creds := credstore.Store{Dir: credstore.DefaultDir()}
 	if token == "" {
@@ -103,6 +124,10 @@ func registerRun(ctx context.Context, server, name, clientLabel, profileName, to
 				continue
 			}
 			if profile, err := profileStore.Load(candidate); err == nil && profile.CredentialRef != "" {
+				endpoint, err := setup.NormalizeServer(profile.ServerURL)
+				if err != nil || endpoint != server {
+					return fmt.Errorf("profile %q belongs to a different server; choose a different profile name", candidate)
+				}
 				if saved, err := creds.Load(profile.CredentialRef); err == nil {
 					token = saved
 					break
@@ -122,7 +147,7 @@ func registerRun(ctx context.Context, server, name, clientLabel, profileName, to
 	if err := creds.Save(ref, registration.Token); err != nil {
 		return err
 	}
-	profile := profiles.Profile{Name: profileName, ServerURL: server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher}
+	profile := profiles.Profile{Name: profileName, ServerURL: server, UserID: registration.UserID, AgentID: registration.AgentID, CredentialRef: ref, Launcher: launcher, Workspace: registration.Workspace}
 	if err := profileStore.Save(profile); err != nil {
 		return err
 	}

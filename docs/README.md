@@ -6,6 +6,7 @@
 | [Document model](MODEL.md) | Spaces, documents, access, discussions, history, and concurrency. |
 | [Architecture](ARCHITECTURE.md) | Components, storage boundaries, and the path of a run. |
 | [Development](DEVELOPMENT.md) | Local checks, real runner tests, and team access setup. |
+| [Release and installation](RELEASING.md) | Candidate validation, publisher access, artifact layout, and release procedure. |
 | [Repository indexing](INDEXING.md) | Trail-code setup, MCP integration, and code navigation. |
 | [Agent guide](../AGENTS.md) | Repository map, commands, and required invariants. |
 | [Contributing](../CONTRIBUTING.md) | Workflow and review expectations. |

@@ -11,13 +11,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/denisqq/agent-camp/camp-cli/clients"
 	"github.com/denisqq/agent-camp/installer/localservice"
 	"github.com/denisqq/agent-camp/installer/profiles"
+	"github.com/denisqq/agent-camp/installer/runtimepack"
 	"github.com/denisqq/agent-camp/installer/setup"
+	"github.com/denisqq/agent-camp/internal/buildinfo"
 	"github.com/denisqq/agent-camp/internal/config"
 	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
@@ -60,11 +63,34 @@ func setupCmd() *cobra.Command {
 }
 
 func setupRun(ctx context.Context, serverAddr, name string, clientList []string, jsonOut, startService bool) error {
-	// Local mode order: configuration, instance bootstrap, running
-	// camp-server — only then identity registration and clients, which
-	// need a reachable server.
-	if serverAddr == "" {
+	// Local mode order: configuration → matched server runtime → instance
+	// bootstrap → running camp-server → identity registration → clients.
+	// The runtime must be in place before the first serve.
+	localMode := serverAddr == ""
+	var runtimeAcquirer setup.RuntimeAcquirer
+	runtimeVersion := os.Getenv("CAMP_RUNTIME_VERSION")
+	if localMode {
+		if runtimeVersion == "" {
+			runtimeVersion = buildinfo.Version
+		}
+		if runtimeVersion == "dev" {
+			if _, err := os.Stat("./runner/camp_runner.py"); err == nil {
+				fmt.Fprintln(os.Stderr, "camp: development build — using the repository runner, no runtime pack download")
+				cwd, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				runtimeAcquirer = developmentRuntime{root: cwd}
+			} else {
+				return fmt.Errorf("this is a development build without a pinned runtime: set CAMP_RUNTIME_VERSION or install a release")
+			}
+		} else {
+			runtimeAcquirer = packRuntime{base: env("CAMP_RUNTIME_BASE", runtimepack.DefaultBaseURL)}
+		}
 		if err := ensureLocalConfig(); err != nil {
+			return err
+		}
+		if err := setup.AcquireRuntime(ctx, runtimeAcquirer, runtimeVersion, config.DiscoverPath()); err != nil {
 			return err
 		}
 		if err := bootstrapLocalInstance(); err != nil {
@@ -72,7 +98,7 @@ func setupRun(ctx context.Context, serverAddr, name string, clientList []string,
 		}
 		if startService {
 			if err := startLocalService(); err != nil {
-				fmt.Fprintf(os.Stderr, "camp: local service not started: %v (start it with camp up)\n", err)
+				return fmt.Errorf("local service not started: %w (start it with camp up)", err)
 			}
 		}
 		if cfg, err := loadConfig(config.Overrides{}); err == nil {
@@ -81,9 +107,16 @@ func setupRun(ctx context.Context, serverAddr, name string, clientList []string,
 			serverAddr = "http://127.0.0.1:8090"
 		}
 	}
+
+	launcher, err := absoluteLauncher()
+	if err != nil {
+		return err
+	}
 	installer := &cliClientInstaller{}
 	result, err := setup.Run(ctx, setup.Options{
 		Server:          serverAddr,
+		Local:           localMode,
+		Launcher:        launcher,
 		AgentName:       name,
 		Clients:         clientList,
 		Registerer:      httpRegisterer{},
@@ -93,7 +126,13 @@ func setupRun(ctx context.Context, serverAddr, name string, clientList []string,
 		result.Server = serverAddr
 	}
 	if jsonOut {
-		return json.NewEncoder(os.Stdout).Encode(result)
+		if encodeErr := json.NewEncoder(os.Stdout).Encode(result); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	}
+	if err != nil {
+		return err
 	}
 	fmt.Printf("Camp setup complete.\nServer: %s\nWorkspace: %s\nAgent: %s (user %s)\n", result.Server, result.Workspace, result.AgentID, result.UserID)
 	for _, c := range result.Clients {
@@ -104,6 +143,33 @@ func setupRun(ctx context.Context, serverAddr, name string, clientList []string,
 	}
 	fmt.Println("Check this installation later: camp doctor")
 	return err
+}
+
+type developmentRuntime struct{ root string }
+
+func (p developmentRuntime) Acquire(context.Context, string) (setup.RuntimePaths, error) {
+	paths := setup.RuntimePaths{Python: env("CAMP_RUNNER_PYTHON", filepath.Join(p.root, "runner/.venv/bin/python")), Script: env("CAMP_RUNNER_SCRIPT", filepath.Join(p.root, "runner/camp_runner.py")), Monty: env("CAMP_MONTY_BINARY", filepath.Join(p.root, "runner/.venv/bin/monty"))}
+	for _, path := range []string{paths.Python, paths.Script, paths.Monty} {
+		if !filepath.IsAbs(path) {
+			return setup.RuntimePaths{}, fmt.Errorf("runner path must be absolute: %s", path)
+		}
+		if _, err := os.Stat(path); err != nil {
+			return setup.RuntimePaths{}, err
+		}
+	}
+	return paths, nil
+}
+
+// packRuntime downloads verified runtime packs from the release base.
+type packRuntime struct{ base string }
+
+func (p packRuntime) Acquire(ctx context.Context, version string) (setup.RuntimePaths, error) {
+	m := runtimepack.Manager{BaseURL: p.base, CacheDir: runtimepack.DefaultCacheDir()}
+	paths, err := m.Ensure(ctx, version, runtimepack.Platform(runtime.GOOS, runtime.GOARCH))
+	if err != nil {
+		return setup.RuntimePaths{}, err
+	}
+	return setup.RuntimePaths{Python: paths.Python, Script: paths.Script, Monty: paths.Monty}, nil
 }
 
 // ensureLocalConfig writes the default configuration when none exists,
@@ -131,7 +197,7 @@ func startLocalService() error {
 	if err != nil {
 		return err
 	}
-	service := localservice.Service{Dir: cfg.DataRoot, Command: binary, ConfigPath: config.DiscoverPath()}
+	service := localservice.Service{Dir: cfg.DataRoot, Command: binary, ConfigPath: cfg.Path}
 	pid, err := service.Start(cfg.Listen)
 	if err != nil {
 		return err
@@ -277,7 +343,7 @@ func statusCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	service := localservice.Service{Dir: cfg.DataRoot, Command: "", ConfigPath: config.DiscoverPath()}
+	service := localservice.Service{Dir: cfg.DataRoot, Command: "", ConfigPath: cfg.Path}
 	pid, _ := service.Running()
 	running := pid != 0 && healthPing(cfg.Listen)
 	fmt.Printf("profile: %s\nserver: %s\nstate: %s\n", config.DiscoverPath(), cfg.Listen, map[bool]string{true: "running", false: "stopped"}[running])
@@ -296,7 +362,7 @@ func upCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	service := localservice.Service{Dir: cfg.DataRoot, Command: binary, ConfigPath: config.DiscoverPath()}
+	service := localservice.Service{Dir: cfg.DataRoot, Command: binary, ConfigPath: cfg.Path}
 	pid, err := service.Start(cfg.Listen)
 	if err != nil {
 		return err
@@ -310,7 +376,7 @@ func downCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	service := localservice.Service{Dir: cfg.DataRoot, Command: "", ConfigPath: config.DiscoverPath()}
+	service := localservice.Service{Dir: cfg.DataRoot, Command: "", ConfigPath: cfg.Path}
 	if err := service.Stop(); err != nil {
 		return err
 	}

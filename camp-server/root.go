@@ -17,6 +17,7 @@ import (
 
 	"github.com/denisqq/agent-camp/camp-server/camp"
 	"github.com/denisqq/agent-camp/camp-server/runtime"
+	"github.com/denisqq/agent-camp/internal/buildinfo"
 	"github.com/denisqq/agent-camp/internal/config"
 	"github.com/denisqq/agent-camp/internal/credstore"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ func NewRoot() *cobra.Command {
 		Long: "The Camp workspace server: HTTP /v1 + MCP (map/start/run) over a\n" +
 			"versioned, transactional document store. Run it under your process\n" +
 			"manager (systemd, Docker, supervisor); it stays in the foreground.",
+		Version:       buildinfo.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

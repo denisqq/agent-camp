@@ -51,10 +51,17 @@ type Registration struct {
 	StarterWorkspace string `json:"starter_workspace,omitempty"`
 }
 
+type Runner struct {
+	Python string `json:"python,omitempty"`
+	Script string `json:"script,omitempty"`
+	Monty  string `json:"monty,omitempty"`
+}
+
 type fileFormat struct {
 	SchemaVersion int          `json:"schema_version"`
 	Server        Server       `json:"server"`
 	Storage       Storage      `json:"storage"`
+	Runner        Runner       `json:"runner,omitempty"`
 	Registration  Registration `json:"registration"`
 }
 
@@ -125,6 +132,11 @@ func UserPath() string {
 // error naming the setting and, where possible, the setup command that can
 // repair it.
 func Load(path string, o Overrides) (Config, error) {
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return Config{}, err
+	}
+	path = absolutePath
 	base := filepath.Dir(path)
 	defaults := Defaults(filepath.Join(base, "camp-data"))
 	cfg := defaults
@@ -152,6 +164,15 @@ func Load(path string, o Overrides) (Config, error) {
 		cfg.Storage.Bucket = ff.Storage.Bucket
 		cfg.Storage.Region = ff.Storage.Region
 		cfg.Storage.CredentialsRef = ff.Storage.CredentialsRef
+		if ff.Runner.Python != "" {
+			cfg.RunnerPython = ff.Runner.Python
+		}
+		if ff.Runner.Script != "" {
+			cfg.RunnerScript = ff.Runner.Script
+		}
+		if ff.Runner.Monty != "" {
+			cfg.RunnerMonty = ff.Runner.Monty
+		}
 		if ff.Registration.Mode != "" {
 			cfg.Registration.Mode = ff.Registration.Mode
 		}
@@ -241,6 +262,12 @@ func Load(path string, o Overrides) (Config, error) {
 		cfg.IndexPath = filepath.Join(base, cfg.IndexPath)
 	}
 
+	for _, p := range []*string{&cfg.RunnerPython, &cfg.RunnerScript, &cfg.RunnerMonty} {
+		if !filepath.IsAbs(*p) {
+			*p = filepath.Join(base, *p)
+		}
+	}
+
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -271,6 +298,19 @@ func (c Config) validate() error {
 	return nil
 }
 
+// pythonIfUnder keeps runtime pack paths machine-relative when they live
+// under the config directory (the local setup installs packs beside the
+// data), and absolute otherwise.
+func pythonIfUnder(base, p string) string {
+	if p == "" {
+		return ""
+	}
+	if r, err := filepath.Rel(base, p); err == nil && !strings.HasPrefix(r, "..") {
+		return r
+	}
+	return p
+}
+
 // Save validates cfg and persists it atomically at path: the file is
 // written to a temporary sibling, then renamed, so an interrupted save
 // leaves the previous working configuration in place. Storage paths are
@@ -297,6 +337,11 @@ func Save(path string, cfg Config) error {
 			Bucket:         cfg.Storage.Bucket,
 			Region:         cfg.Storage.Region,
 			CredentialsRef: cfg.Storage.CredentialsRef,
+		},
+		Runner: Runner{
+			pythonIfUnder(base, cfg.RunnerPython),
+			pythonIfUnder(base, cfg.RunnerScript),
+			pythonIfUnder(base, cfg.RunnerMonty),
 		},
 		Registration: cfg.Registration,
 	}
@@ -341,4 +386,17 @@ func DiscoverPath() string {
 		return "camp.json"
 	}
 	return UserPath()
+}
+
+// ClientDir holds private connection profiles and credentials. The override
+// allows isolated client installations on every supported operating system.
+func ClientDir() string {
+	if dir := os.Getenv("CAMP_CLIENT_CONFIG_DIR"); dir != "" {
+		return dir
+	}
+	if base, err := os.UserConfigDir(); err == nil {
+		return filepath.Join(base, "camp")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".camp")
 }

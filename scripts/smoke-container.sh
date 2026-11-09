@@ -20,7 +20,7 @@ docker build -qt "$image" .
 mounts=(-v "$work/config:/config" -v "$work/data:/data" -v "$work/home:/home/camp" -e CAMP_CONFIG=/config/camp.json --user 10001:10001)
 
 echo "== setup server =="
-docker run --rm "${mounts[@]}" --entrypoint camp --entrypoint camp-server "$image" setup --open-registration | tail -1
+docker run --rm "${mounts[@]}" --entrypoint camp-server "$image" setup --open-registration | tail -1
 
 echo "== serve =="
 docker run -d --name camp-smoke -p "127.0.0.1:$port:8090" "${mounts[@]}" --entrypoint camp-server "$image" serve >/dev/null
