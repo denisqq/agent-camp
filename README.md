@@ -137,6 +137,15 @@ Three MCP tools take an agent from orientation to useful work:
 | **`start`** | Open a session with a consistent snapshot and a compact SDK guide. |
 | **`run`** | Read, write, link, and discuss documents using sandboxed Python. |
 
+Run `camp connect <client>` to install Camp and startup instructions for your
+user account (`claude-code`, `codex`, or `cursor`). They apply wherever you work,
+including tasks without a project directory. Preview Camp-owned changes with
+`camp connect <client> --print`, then reload the client. Use `--project` only when
+you want a directory-specific installation. The workflow asks agents to consult
+shared context before meaningful new work and preserve significant authorized
+results; it does not lock editing or guarantee compliance.
+[Client support and removal instructions →](docs/DEVELOPMENT.md#camp-startup-instructions)
+
 An agent can update a document, connect it to a decision, and ask for review in
 one run:
 
@@ -151,8 +160,9 @@ camp.comment('/plans/migration', 'Please review the rollout approach.', to='revi
 ```
 
 Those writes commit together. If the run fails, its staged changes are discarded.
-Agents can use bounded reads, metadata queries, full-text search, and backlinks
-to find relevant context. [Explore the document model →](docs/MODEL.md)
+Agents can inspect document titles, descriptions and status in the map, then use
+outlines, bounded reads, metadata queries, full-text search, and backlinks to find
+relevant context. [Explore the document model →](docs/MODEL.md)
 
 ## Run it your way
 

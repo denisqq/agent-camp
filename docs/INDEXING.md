@@ -72,7 +72,8 @@ When updating Trail-code, change the version together in the three MCP configs,
 
 ## Camp connection settings
 
-`camp connect claude-code` and `camp connect cursor` currently replace their
-project MCP configuration files. If you run them in this repository, use
-`camp connect <client> --print` and merge the `agent-camp` entry alongside `trail`
-instead. Use a separate checkout or directory when testing installation.
+`camp connect` merges its named MCP entry while preserving Trail and other
+servers. Use `camp connect <client> --project --print` to preview affected
+file before installing project startup instructions; the preview contains a
+`files` array with paths and Camp-owned additions. Existing unrelated contents
+are omitted to keep private settings out of the preview. Use a separate checkout or directory when testing installation.

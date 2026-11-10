@@ -70,6 +70,29 @@ doc = camp.read("/decisions/format")
 assert "JSON" in doc["content"], doc
 camp.comment("/decisions/format", "Seconded — see /tasks/exports", to="agent-2")
 "ok"`)
+	// Exercise the documented navigation route before preserving an outcome.
+	run("guide-context", `from camp_sdk import camp
+camp.write("/rules/export", "# Export rules\nUse JSON for exports.", kind="constitution")
+"seeded"`)
+	overview, err := broker.Map(ctx, admin, camp.MapRequest{Space: "team"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if overview["coverage"] != "complete" {
+		t.Fatalf("unexpected map coverage: %v", overview)
+	}
+	session, err = sessions.Start(ctx, admin, camp.StartRequest{Space: "team"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run("guide-consult", `from camp_sdk import camp
+rules = camp.find(kind="constitution", limit=5)
+assert len(rules["items"]) == 1, rules
+rule = camp.read(rules["items"][0]["path"], limit=40)
+assert "Use JSON" in rule["content"], rule
+headings = camp.outline("/rules/export")
+camp.write("/handoffs/export", "Reviewed the export rule: use JSON.", kind="note")
+{"consulted": rule["revision"]}`)
 	// Retry semantics: identical code with the same operation id returns
 	// the original receipt without duplicating the document.
 	first := run("guide-2", `from camp_sdk import camp

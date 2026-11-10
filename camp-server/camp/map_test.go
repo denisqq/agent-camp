@@ -34,7 +34,7 @@ func TestMapShowsLayoutAndSkipsInaccessible(t *testing.T) {
 		{ID: "r1", RecordID: "e1", Path: "/experiments/short-post/a", Kind: "experiment", Content: "one", Metadata: map[string]any{"outcome": "success"}, Actor: "t"},
 		{ID: "r2", RecordID: "e2", Path: "/experiments/short-post/b", Kind: "experiment", Content: "two", Actor: "t"},
 		{ID: "r3", RecordID: "p1", Path: "/practices/short-post", Kind: "practice", Content: "method", Metadata: map[string]any{"relations": []any{map[string]any{"record": "e1", "relation": "derived_from"}}}, Actor: "t"},
-		{ID: "r4", RecordID: "s1", Path: "/sealed/secret", Kind: "section", Metadata: map[string]any{"access": map[string]any{"visibility": "closed"}}, Content: "hidden", Actor: "t"},
+		{ID: "r4", RecordID: "s1", Path: "/sealed/secret", Kind: "section", Metadata: map[string]any{"access": map[string]any{"visibility": "closed"}, "title": "PRIVATE CARD TITLE", "description": "PRIVATE CARD DESCRIPTION"}, Content: "hidden", Actor: "t"},
 	}, "seed", Receipt{}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +63,9 @@ func TestMapShowsLayoutAndSkipsInaccessible(t *testing.T) {
 	}
 	if err = json.Unmarshal(wire, &data); err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(string(wire), "PRIVATE CARD") {
+		t.Fatal("inaccessible card metadata leaked")
 	}
 	num := func(v any) int { return int(v.(float64)) }
 	if num(data["records"]) != 3 {

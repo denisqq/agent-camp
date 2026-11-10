@@ -105,3 +105,26 @@ convention again, one line of content.
 One changeset per successful run, in one space — like a commit, but authored
 by a program. Many agents coexist in one team space as long as they touch
 disjoint documents; contention is per document, not per space.
+
+## Navigation cards
+
+`map(space=...)` profiles the accessible path tree. A visible node that is also
+an actual document includes its stable `id`, exact `revision`, `kind`, `title`,
+optional `description` and `status`, and suggested `outline`/`read` actions. Nodes
+with children also expose `map`; synthetic branches have only structural counts
+and a `map` action. These are navigation hints, not additional MCP tools.
+
+Optional string metadata fields `title`, `description`, and `status` supply the
+card text. Without a title, Camp uses the first ATX Markdown heading outside a
+fenced code block, then the final path segment. Wrongly typed optional values are
+ignored. Descriptions are never generated from document bodies or descendants.
+The `description_source` is `metadata`, and the card's revision identifies the
+source; Camp does not verify whether a manually maintained description still
+accurately describes the body.
+
+Display titles, descriptions and status values are bounded to 120, 240 and 64
+Unicode code points respectively; `text_truncated` reports shortening. Paths,
+record IDs and revisions stay exact. Existing snapshot, authorization, coverage
+and overall map response limits apply. Document contents remain available through
+`outline` and bounded `read`; the current map can still truncate the inventory,
+so use narrower paths or the paginated `ls` catalog for exhaustive traversal.

@@ -10,3 +10,8 @@ var Markdown string
 
 // Name is the skill name clients see.
 const Name = "using-agent-camp"
+
+// Bootstrap is the short workflow delivered by startup hooks and project rules.
+//
+//go:embed bootstrap.md
+var Bootstrap string
