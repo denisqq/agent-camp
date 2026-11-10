@@ -103,3 +103,23 @@ disposable store and SQLite control database. No runner or Docker inputs changed
 in this increment. Independent review found no blocking issues; a minor test
 gap remains: MCP failures assert `IsError`, while distinct conflict/invalid
 contracts are checked by broker error sentinels and HTTP status codes.
+
+## Bounded ancestor collection
+
+Review found that mapping a 500-segment path with one document made 1,007
+current-HEAD reads, even though only two ancestor anchors fit the default
+response. Injecting 35 ms latency per HEAD read reproduced the 30-second map
+timeout. Collection now checks a minimum serialized anchor size before storage
+reads and charges denied candidates against the same quarter-budget allowance;
+actual authorized card sizes also consume that allowance. Direct upward
+navigation remains available when collection stops.
+
+`TestNavigationDeepAncestorsBoundStorageReads` failed before the fix and now
+checks bounded reads, source reachability and response size at default/max
+budgets: 11 and 21 HEAD reads respectively. The closed-chain regression fell
+from 511 to 13 reads while keeping private ancestor text out of the result.
+Repeating the injected-latency scenario completed in 0.44 seconds with 11 reads.
+This is a controlled regression fixture, not a production S3 latency benchmark.
+Final fix validation passed: full build, real-Monty tests, full race suite and
+vet; the camp package took 21.0 seconds normally and 250.0 seconds under race
+detection. No runner, dependencies, store format or authorization cache changed.

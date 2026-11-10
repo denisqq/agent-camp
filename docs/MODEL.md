@@ -138,6 +138,10 @@ record IDs and revisions stay exact. `location` always anchors the requested
 path; `ancestors` lists authorized anchors nearest first, and `up_path` offers a
 direct upward request. Ancestors carry no descendant summaries. Optional ancestor
 anchors and connectivity hubs yield to navigable cards when space is tight.
+Ancestor collection itself uses at most one quarter of the response budget:
+minimum anchor size is checked before storage reads, and denied candidates also
+consume this inspection budget. A long or closed chain can therefore omit
+distant anchors; `up_path` remains available for direct upward navigation.
 
 `budget_bytes` bounds serialized result JSON (excluding the transport envelope),
 defaults to 12,288, and accepts 4,096–32,768. Global and per-node kind dictionaries

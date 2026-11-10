@@ -81,7 +81,7 @@ func (b *Broker) spaceMap(ctx context.Context, e *Execution, space string, a map
 	if err != nil {
 		return nil, err
 	}
-	if input.Ancestors, err = b.navigationAncestors(ctx, e, space, root); err != nil {
+	if input.Ancestors, err = b.navigationAncestors(ctx, e, space, root, opts.BudgetBytes/4); err != nil {
 		return nil, err
 	}
 	digestSource, err := json.Marshal(struct{ Cards, Ancestors []MapNode }{input.Cards, input.Ancestors})
@@ -203,17 +203,29 @@ func navigationInteger(args map[string]any, key string, fallback, lower, upper i
 	return n, nil
 }
 
-func (b *Broker) navigationAncestors(ctx context.Context, e *Execution, space, root string) ([]MapNode, error) {
+func (b *Broker) navigationAncestors(ctx context.Context, e *Execution, space, root string, budget int) ([]MapNode, error) {
 	anchors := []MapNode{}
+	spent := 2 // JSON array brackets; reserve a comma for each attempted anchor.
 	for p := root; p != "/"; {
 		p = path.Dir(p)
+		anchor := MapNode{Path: p, Kinds: map[string]int{}, EntryType: "branch", Actions: []string{"map"}}
+		minimum, err := json.Marshal(anchor)
+		if err != nil {
+			return nil, err
+		}
+		if spent+len(minimum)+1 > budget {
+			break
+		}
+		// Charge denied candidates too, so a closed ancestor chain cannot force
+		// unbounded current-HEAD reads while looking for a distant visible anchor.
+		spent += len(minimum) + 1
 		if err := b.allow(ctx, e, space, p, "read"); err != nil {
 			if errors.Is(err, ErrDenied) {
 				continue
 			}
 			return nil, err
 		}
-		anchor := MapNode{Path: p, Title: path.Base(p), Kinds: map[string]int{}, EntryType: "branch", Actions: []string{"map"}}
+		anchor.Title = path.Base(p)
 		rec, rev, err := b.resolve(ctx, e, space, p, "")
 		if err == nil {
 			card := navigationCard(rec, rev)
@@ -225,6 +237,14 @@ func (b *Broker) navigationAncestors(ctx context.Context, e *Execution, space, r
 				continue
 			}
 			return nil, err
+		}
+		encoded, err := json.Marshal(anchor)
+		if err != nil {
+			return nil, err
+		}
+		spent += len(encoded) - len(minimum)
+		if spent > budget {
+			break
 		}
 		anchors = append(anchors, anchor)
 	}
