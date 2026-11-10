@@ -165,8 +165,10 @@ outlines, bounded reads, metadata queries, full-text search, and backlinks to fi
 relevant context. The default adaptive map expands small branches and skips empty
 directory chains within a fixed response budget. Use `view="tree"` for a
 depth-based outline. Location and ancestor anchors preserve orientation; separate
-scan/output completeness flags explain partial results. Until map continuation
-ships, narrower paths and paginated `ls` provide exhaustive traversal.
+scan/output completeness flags explain partial results. Follow `cursor` with
+the same parameters until empty to continue the map within its original
+snapshot, then expand the branches you need. Space discovery is paginated too.
+Cursors expire after 30 minutes; current access changes may require a fresh map.
 [Explore the document model →](docs/MODEL.md)
 
 ## Run it your way

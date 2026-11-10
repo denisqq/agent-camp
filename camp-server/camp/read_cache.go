@@ -27,14 +27,13 @@ const readCacheBytes = 8 << 20
 const readCacheEntries = 4096
 
 func (b *Broker) withReadCache() *Broker {
+	state := b.cursorState()
 	if _, ok := b.Store.Objects.(*immutableReadCache); ok {
 		return b
 	}
 	store := *b.Store
 	store.Objects = &immutableReadCache{Store: store.Objects, entries: map[string]cachedObject{}}
-	broker := *b
-	broker.Store = &store
-	return &broker
+	return &Broker{Store: &store, Auth: b.Auth, Search: b.Search, Status: b.Status, mapCursors: state}
 }
 func immutableObject(key string) bool {
 	parts := strings.Split(key, "/")

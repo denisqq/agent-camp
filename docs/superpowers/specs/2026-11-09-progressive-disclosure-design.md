@@ -18,7 +18,7 @@ turn. A ranked selection of passages must not substitute for the workspace map.
 
 The user asked for an idea and algorithm first, then scientific references and
 comparable implementations, specifically modern research and Trail-code.
-The user subsequently accepted the algorithm at a high level. Implementation has started; adaptive views are implemented; continuation and snapshot handoff remain pending.
+The user subsequently accepted the algorithm at a high level. Implementation has started; adaptive views and protected continuation are implemented; snapshot handoff remains pending.
 
 ## Current implementation
 
@@ -36,9 +36,10 @@ navigation to `Broker.spaceMap` in `camp-server/camp/documents.go`.
 - The response carries a snapshot and coverage indication.
 
 Descriptive cards and adaptive structure now help orient within the tree.
-Public output truncation still favors earlier paths and does not yet provide a
-continuation cursor; narrower maps and paginated `ls` remain necessary for an
-exhaustive traversal.
+Protected cursors now continue output and bounded scan windows within a pinned
+snapshot. Folded branches remain direct expansion routes; paginated `ls` remains
+available as a catalog. Navigation quality trials and atomic snapshot handoff
+to `start` remain pending.
 Incoming link count indicates connectivity, not relevance, validity, or authority.
 
 ## Approaches discussed

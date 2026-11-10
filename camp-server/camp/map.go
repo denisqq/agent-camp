@@ -2,9 +2,6 @@ package camp
 
 import (
 	"context"
-	"errors"
-	"sort"
-	"strings"
 	"time"
 )
 
@@ -14,6 +11,7 @@ type MapRequest struct {
 	Depth       *int   `json:"depth,omitempty" jsonschema:"Tree depth from 1 to 4; defaults to 2"`
 	View        string `json:"view,omitempty" jsonschema:"adaptive (default) expands small branches and shortens empty chains; tree preserves the depth-based outline"`
 	BudgetBytes *int   `json:"budget_bytes,omitempty" jsonschema:"Maximum serialized result bytes, 4096 to 32768; defaults to 12288"`
+	Cursor      string `json:"cursor,omitempty" jsonschema:"Opaque continuation; repeat the same map parameters. Omit to restart at the current snapshot"`
 }
 
 // Map is a read-only orientation request: no durable session or Python runtime
@@ -24,19 +22,20 @@ func (b *Broker) Map(ctx context.Context, p Principal, r MapRequest) (map[string
 	defer cancel()
 	b = b.withReadCache()
 	if r.Space == "" {
-		if r.View != "" || r.BudgetBytes != nil {
+		if r.Path != "" || r.Depth != nil || r.View != "" || r.BudgetBytes != nil {
 			return nil, ErrInvalid
 		}
-		if (r.Path != "" && r.Path != "/") || (r.Depth != nil && (*r.Depth < 1 || *r.Depth > 4)) {
-			return nil, ErrInvalid
-		}
-		return b.discoverSpaces(ctx, p)
+		return b.discoverSpaces(ctx, p, r.Cursor)
 	}
 	e, err := b.Begin(ctx, p, r.Space)
 	if err != nil {
 		return nil, err
 	}
 	args := map[string]any{"path": r.Path}
+	e.mapSessionless = true
+	if r.Cursor != "" {
+		args["cursor"] = r.Cursor
+	}
 	if r.View != "" {
 		args["view"] = r.View
 	}
@@ -57,74 +56,4 @@ func (b *Broker) Map(ctx context.Context, p Principal, r MapRequest) (map[string
 		return nil, err
 	}
 	return result.(map[string]any), nil
-}
-
-// Discovery deliberately exposes no owners, ACL entries, or document content.
-// Root actions are hints; every later operation rechecks its own path policy.
-func (b *Broker) discoverSpaces(ctx context.Context, p Principal) (map[string]any, error) {
-	p, err := b.Auth.Current(ctx, p)
-	if err != nil {
-		return nil, err
-	}
-	ids := append([]string(nil), p.Spaces...)
-	coverage := "complete"
-	if contains(p.Spaces, "*") {
-		keys, next, err := b.Store.Objects.List(ctx, "registry/spaces/", "", 1000)
-		if err != nil {
-			return nil, err
-		}
-		ids = make([]string, 0, len(keys))
-		for _, key := range keys {
-			ids = append(ids, strings.TrimPrefix(key, "registry/spaces/"))
-		}
-		if next != "" {
-			coverage = "truncated"
-		}
-	}
-	sort.Strings(ids)
-	if len(ids) > 1000 {
-		ids = ids[:1000]
-		coverage = "truncated"
-	}
-	spaces := []map[string]any{}
-	previous := ""
-	for _, id := range ids {
-		if id == previous {
-			continue
-		}
-		previous = id
-		snap, err := b.Store.Load(ctx, id)
-		if errors.Is(err, ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		err = b.AuthorizePath(ctx, p, snap, "/", "read")
-		if errors.Is(err, ErrDenied) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if len(spaces) == 100 {
-			coverage = "truncated"
-			break
-		}
-		actions := []string{"read"}
-		for _, action := range []string{"propose", "write"} {
-			err = b.AuthorizePath(ctx, p, snap, "/", action)
-			if err == nil {
-				actions = append(actions, action)
-			} else if !errors.Is(err, ErrDenied) {
-				return nil, err
-			}
-		}
-		spaces = append(spaces, map[string]any{"id": id, "kind": snap.Space.Kind, "actions": actions})
-	}
-	if _, err := b.Auth.Current(ctx, p); err != nil {
-		return nil, err
-	}
-	return map[string]any{"spaces": spaces, "coverage": coverage,
-		"next_steps": "Choose a returned id: map(space=id) explores it; start(primary_space=id) opens a session. Then run the examples in start.help. Actions apply at the root; nested sections may differ. If no spaces are returned, ask the workspace owner to grant access. Truncated coverage is not a complete inventory."}, nil
 }

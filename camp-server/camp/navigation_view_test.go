@@ -346,53 +346,41 @@ func TestNavigationTreeCountsMatchAuthorizedSources(t *testing.T) {
 	}
 }
 
-func TestMapScanWindowBoundary(t *testing.T) {
-	for _, count := range []int{3000, 3001} {
-		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			ctx, b, p, _ := setupBroker(t)
-			seedMapRecords(t, b, count, false)
-			// Keep the same large corpus, with an ordinary single-record final
-			// changeset. Repeated decoding of a 3000-change HEAD is a separate
-			// store performance concern, not the scan-window boundary contract.
-			snapshot, err := b.Store.Load(ctx, "alice")
-			if err != nil {
-				t.Fatal(err)
-			}
-			record, err := b.Store.RecordByPath(ctx, snapshot, "/skills/skill-000/SKILL.md")
-			if err != nil {
-				t.Fatal(err)
-			}
-			revision, err := b.Store.ReadRevision(ctx, "alice", record.Revision)
-			if err != nil {
-				t.Fatal(err)
-			}
-			revision.ID, revision.Parent = "boundary-final-revision", record.Revision
-			if _, err = b.Store.Commit(ctx, snapshot, []Revision{revision}, "boundary-final", Receipt{}, nil); err != nil {
-				t.Fatal(err)
-			}
-			execution, err := b.Begin(ctx, p, "alice")
-			if err != nil {
-				t.Fatal(err)
-			}
-			// Test scan-window membership independently of the sessionless
-			// transport's wall-clock deadline (especially under -race).
-			value, err := b.Call(ctx, execution, "map", map[string]any{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			result := value.(map[string]any)
-			if result["scan_complete"] != (count == 3000) || result["records"] != float64(3000) {
-				t.Fatalf("wrong scan boundary: %+v", result)
-			}
-		})
-	}
-}
-
 func TestEmptyFocusedNavigationDropsOptionalAncestors(t *testing.T) {
 	parent := "/" + strings.Repeat("a", 900)
 	root := parent + "/" + strings.Repeat("b", 120)
 	page, err := renderNavigation(NavigationInput{Root: root, ScanComplete: true, Ancestors: []MapNode{{Path: parent, EntryType: "branch", Actions: []string{"map"}}}}, NavigationOptions{Depth: 2, BudgetBytes: 4096})
 	if err != nil || !page.OutputComplete || len(page.Nodes) != 0 {
 		t.Fatalf("optional ancestor blocked empty result: %+v %v", page, err)
+	}
+}
+
+func TestNavigationLongCursorUsesBoundaryTransition(t *testing.T) {
+	input := NavigationInput{Root: "/", Snapshot: "s", Cards: []MapNode{viewCard("/" + strings.Repeat("x", 1000))}, ScanComplete: false}
+	opts := NavigationOptions{Depth: 2, BudgetBytes: 4096, CursorForOffset: func(offset int, complete bool) (string, error) {
+		if complete {
+			return strings.Repeat("c", 3000), nil
+		}
+		return fmt.Sprintf("in-window-%d", offset), nil
+	}}
+	page, err := renderNavigation(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Nodes) != 1 || !page.OutputComplete || page.Cursor != "in-window-1" {
+		t.Fatalf("long scan boundary stranded last card: %+v", page)
+	}
+	raw, _ := json.Marshal(page)
+	if len(raw) > 4096 {
+		t.Fatal("boundary exceeded budget")
+	}
+	opts.Offset = page.NextOffset
+	next, err := renderNavigation(input, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = json.Marshal(next)
+	if len(next.Nodes) != 0 || next.Cursor != strings.Repeat("c", 3000) || len(raw) > 4096 {
+		t.Fatal("empty transition failed")
 	}
 }

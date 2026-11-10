@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/denisqq/agent-camp/camp-server/camp"
 	"github.com/denisqq/agent-camp/camp-server/index"
 	"github.com/denisqq/agent-camp/camp-server/objectstore"
@@ -219,5 +220,54 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	snap, _ := store.Load(ctx, "alice")
 	if _, err = store.RecordByPath(ctx, snap, "/must-not-exist"); err == nil {
 		t.Fatal("partial commit")
+	}
+	var seededPages camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "seed-map-pages", "code": "from camp_sdk import camp\nfor i in range(18):\n    camp.write('/cursor-pages/doc-' + str(i), '# Source', kind='note', metadata={'description': '界' * 240})\n{'seeded': 18}"}, &seededPages)
+	if seededPages.Status != "completed" {
+		t.Fatalf("seed cursor stack: %+v", seededPages)
+	}
+	var firstPage camp.NavigationPage
+	call("map", map[string]any{"space": "alice", "path": "/cursor-pages", "view": "tree", "budget_bytes": 4096}, &firstPage)
+	if firstPage.Cursor == "" {
+		t.Fatal("stack fixture needs cursor")
+	}
+	var secondPage camp.NavigationPage
+	call("map", map[string]any{"space": "alice", "path": "/cursor-pages", "view": "tree", "budget_bytes": 4096, "cursor": firstPage.Cursor}, &secondPage)
+	seen := map[string]bool{}
+	page := firstPage
+	for i := 0; i < 20; i++ {
+		for _, node := range page.Nodes {
+			if seen[node.ID] {
+				t.Fatal("duplicate SDK continuation")
+			}
+			seen[node.ID] = true
+		}
+		if page.Cursor == "" {
+			break
+		}
+		var continued camp.Receipt
+		code := fmt.Sprintf("from camp_sdk import camp\ncamp.map('/cursor-pages', view='tree', cursor=%q, budget_bytes=4096)", page.Cursor)
+		call("run", map[string]any{"session_id": start.ID, "operation_id": fmt.Sprintf("map-page-%d", i), "code": code}, &continued)
+		if continued.Status != "no_changes" {
+			t.Fatalf("SDK cursor: %+v", continued)
+		}
+		raw, _ := json.Marshal(continued.Result)
+		if len(raw) > 4096 {
+			t.Fatal("SDK cursor exceeded budget")
+		}
+		page = camp.NavigationPage{}
+		if err = json.Unmarshal(raw, &page); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			a, _ := json.Marshal(page.Nodes)
+			b, _ := json.Marshal(secondPage.Nodes)
+			if !bytes.Equal(a, b) {
+				t.Fatal("MCP and SDK continuation disagree")
+			}
+		}
+	}
+	if len(seen) != 18 {
+		t.Fatalf("SDK pagination stranded sources: %d", len(seen))
 	}
 }

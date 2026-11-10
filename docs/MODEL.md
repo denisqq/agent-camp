@@ -152,10 +152,57 @@ branches, rather than a flat list of every document. `coverage` is `complete`
 only when both are true. Counts include only accessible records within the
 requested subtree's scan window (`counts_scope="scan_window"`), including a
 document at the requested path. `index_state="authoritative"` identifies direct
-store reads; no asynchronous index watermark is implied. Partial scans never
+store reads; no asynchronous index watermark is implied. Partial scan windows (including a final window that starts mid-tree) never
 justify chain compression or automatic branch expansion; documents retain an
 expand action because unseen descendants may exist.
 
-Document contents remain available through `outline` and bounded `read`. Public
-map continuation is not implemented yet: when coverage is truncated, use narrower
-paths or the paginated `ls` catalog for exhaustive traversal.
+Document contents remain available through `outline` and bounded `read`.
+
+### Map continuation
+
+Every map result contains a `cursor`; an empty string marks the end of this
+traversal. Repeat the same space/path/view/depth/budget arguments with that cursor.
+For example, resume `camp.map('/rules', space='workspace', view='tree',
+budget_bytes=8192)` with the same call plus `cursor=page['cursor']`. Follow the
+cursor even if the current page has no nodes; an all-denied scan window or a
+large scan-boundary token can require an empty transition page. Check both
+completeness flags; `output_complete` concerns the current window, and does not
+make a nonempty cursor optional. Folded branches still require explicit direct
+mapping when their contents are needed.
+
+Space maps scan at most 3,000 records per window, with one-record lookahead.
+An output page may consume only part of that window. Continuing output rescans
+the same immutable window and advances its internal output position; finishing
+the window advances the raw scan boundary. Repeated branch anchors across windows
+are normal. Counts and kind profiles concern each window; adding them across
+output pages would double-count records.
+
+Cursors use authenticated encryption and bind the token, subject, space, path,
+view, depth, byte budget, snapshot and position. Raw private scan boundaries
+cannot be recovered by decoding the token. Keys exist only in the broker's memory,
+are shared across its operation-local read-cache wrappers and never enter workspace
+storage or backups. A traversal expires 30 minutes after its first page; later
+pages do not extend that deadline. Tampering, mismatched parameters, expiry or a
+broker restart returns an invalid-cursor error that requires restarting the map
+without the cursor. If a later card cannot fit the bound budget, restart with a
+larger budget rather than changing parameters on the existing cursor.
+
+Sessionless continuation loads the original snapshot with `Store.At`, even if
+HEAD advances. Every page still checks current access and shared-source validity.
+An in-window visibility digest requires a restart if deletion or a permission
+change alters page membership, preventing offset shifts from silently skipping
+sources. Authorized moves follow existing immutable-snapshot reads. The SDK
+requires the cursor's snapshot to equal the session's selected snapshot, and
+rejects continuation with staged changes; `refresh` invalidates older cursors
+when it changes that snapshot. `start` does not yet offer an atomic map-snapshot
+handoff precondition.
+
+The sessionless MCP discovery tool uses `map(cursor=...)` without
+space/path/depth/view/budget parameters; SDK `camp.map` continues navigating a
+selected session space.
+It returns at most 100 visible spaces and scans at most 1,000 registry IDs per
+call within the default result budget. Its registry is live (`registry_mode="live"`),
+not an atomic snapshot across spaces: additions before an already-passed boundary
+may require a fresh traversal to discover. Closed-only registry windows advance
+with an empty visible page and a protected cursor. Complete pages do not imply
+anything about inaccessible spaces.

@@ -90,15 +90,15 @@ Implementation is in progress. The following defaults resolve open implementatio
 
 **Interfaces:** `MapCursor` stores version, principal token hash, space, path, view, depth, budget, snapshot commit, scan-window start, output offset and expiry. Internal `sealMapCursor(key []byte, c MapCursor) (string, error)` and `openMapCursor(key []byte, token string) (MapCursor, error)` use authenticated encryption from Go stdlib. The key is generated once per broker lifetime, shared by its read-cache copies, never serialized into workspace storage. Initialize safely once, including struct-literal broker construction; propagate entropy errors.
 
-- [ ] Add `TestMapContinuationExhaustive`: more than 3,000 records and more than 100 groups; follow all pages; union of represented routes reaches all authorized records, with strict progress and no permanently stranded tail. Repeated branch anchors across scan windows are allowed and documented.
-- [ ] Add `TestMapCursorBinding`: tampering, different token/principal, space, path, view, depth or budget is rejected. Private raw scan paths are not exposed by decoding the external token. Expiry (30 minutes) and broker restart produce an explicit restart-required invalid-cursor error.
-- [ ] Add `TestMapCursorSnapshotAndRevocation`: unrelated commits do not change a continued map; current revocation prevents old data from being returned; deleted/moved records follow existing immutable-snapshot read semantics and current authorization. SDK refresh with an old cursor fails explicitly.
-- [ ] Run the targeted tests and confirm failure.
-- [ ] Scan in bounded windows of at most 3,000 records using `Store.List`. Render a window into potentially multiple output pages; while paging that window, retain its original start and advance only the output offset. Once exhausted, advance the scan boundary and reset offset. Re-scanning a window is an intentional initial tradeoff; do not add persistent caching.
-- [ ] Load the cursor snapshot using `Store.At` for sessionless continuation after current principal validation; keep existing current access and dependency rechecks. Inside SDK execution require the cursor snapshot to equal the session snapshot. Reject map continuation with nonempty staging to avoid changing page membership between calls.
-- [ ] Ensure denied-only windows can return no cards with an advancing opaque cursor. Counts concern accessible records only. Cursor carries no raw client-controlled tree roots; snapshot and all query bindings are validated. Use one-record lookahead to distinguish exactly 3,000 records from a larger collection.
-- [ ] Add equivalent continuation to space discovery for more than 100 authorized spaces. Bind discovery tokens to the principal and parameters; document discovery as live registry pagination, with no atomic cross-space snapshot claim. Require space/view-only arguments to be absent during discovery.
-- [ ] Pass full map/cursor tests and race checks. Before committing `feat: preserve navigation coverage with opaque continuation`, verify no cursor/key appears in backups and no store key layout changed.
+- [x] Add `TestMapContinuationExhaustive`: more than 3,000 records and more than 100 groups; follow all pages; union of represented routes reaches all authorized records, with strict progress and no permanently stranded tail. Repeated branch anchors across scan windows are allowed and documented.
+- [x] Add `TestMapCursorBinding`: tampering, different token/principal, space, path, view, depth or budget is rejected. Private raw scan paths are not exposed by decoding the external token. Expiry (30 minutes) and broker restart produce an explicit restart-required invalid-cursor error.
+- [x] Add `TestMapCursorSnapshotAndRevocation`: unrelated commits do not change a continued map; current revocation prevents old data from being returned; deleted/moved records follow existing immutable-snapshot read semantics and current authorization. SDK refresh with an old cursor fails explicitly.
+- [x] Run the targeted tests and confirm failure.
+- [x] Scan in bounded windows of at most 3,000 records using `Store.List`. Render a window into potentially multiple output pages; while paging that window, retain its original start and advance only the output offset. Once exhausted, advance the scan boundary and reset offset. Re-scanning a window is an intentional initial tradeoff; do not add persistent caching.
+- [x] Load the cursor snapshot using `Store.At` for sessionless continuation after current principal validation; keep existing current access and dependency rechecks. Inside SDK execution require the cursor snapshot to equal the session snapshot. Reject map continuation with nonempty staging to avoid changing page membership between calls.
+- [x] Ensure denied-only windows can return no cards with an advancing opaque cursor. Counts concern accessible records only. Cursor carries no raw client-controlled tree roots; snapshot and all query bindings are validated. Use one-record lookahead to distinguish exactly 3,000 records from a larger collection.
+- [x] Add equivalent continuation to space discovery for more than 100 authorized spaces. Bind discovery tokens to the principal and parameters; document discovery as live registry pagination, with no atomic cross-space snapshot claim. Require space/view-only arguments to be absent during discovery.
+- [x] Pass full map/cursor tests and race checks. Before committing `feat: preserve navigation coverage with opaque continuation`, verify no cursor/key appears in backups and no store key layout changed.
 
 ## Task 4: Transport, SDK and snapshot handoff
 
@@ -144,11 +144,24 @@ depth rather than every empty path segment. Kind dictionaries are bounded by
 both count and bytes, and optional dictionaries/ancestors yield to a first source
 card. Python keyword-only `view` and `budget_bytes` options were brought forward
 from Task 4 so both MCP and SDK callers can select the compatibility tree view.
+The Python `cursor` keyword and MCP input were likewise brought forward into
+Task 3 to make continuation usable across both surfaces.
 [Validation and performance observations](../../evaluations/progressive-disclosure.md)
 record what has been checked and what remains unmeasured.
 
-Continuation, snapshot handoff and agent quality evaluation (Tasks 3–5) remain
+Task 3 continuation is implemented in `navigation_cursor.go` and
+`navigation_discovery.go`. AES-GCM cursors bind principal, query, snapshot,
+scan boundary, output offset and original expiry. In-window visibility digests
+require a restart when membership changes, avoiding silently shifted offsets.
+Current access and shared-source checks remain active. Keys are broker-local and
+shared safely by operation read-cache wrappers, including struct-literal brokers.
+There is no persisted navigation cache or store format change. Actual cursor
+ciphertexts participate in response budgeting; a long next-window boundary may
+require an empty transition page. Discovery continues a live registry and can
+advance denied-only windows without exposing their raw boundaries.
+
+Snapshot handoff and agent quality evaluation (remaining Tasks 4–5) remain
 unimplemented. No exhaustive map coverage or completion of this
-entire plan is claimed. Use `ls` continuation or narrower maps until continuation
-ships. PR #4 covers descriptive cards and client-wide bootstrap. The adaptive view is
+entire plan is claimed. Follow map cursors until empty; folded branches remain
+explicit direct-map routes and `ls` remains available as a paginated catalog. PR #4 covers descriptive cards and client-wide bootstrap. The adaptive view is
 a subsequent change; the remaining navigation tasks stay explicitly pending.

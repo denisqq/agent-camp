@@ -23,10 +23,12 @@ type NavigationInput struct {
 	Ancestors      []MapNode
 	Hubs           []NavigationHub
 	ScanComplete   bool
+	PartialWindow  bool
 }
 type NavigationOptions struct {
 	View                       string
 	Depth, BudgetBytes, Offset int
+	CursorForOffset            func(offset int, complete bool) (string, error)
 }
 type NavigationPage struct {
 	Root           string          `json:"root"`
@@ -46,6 +48,7 @@ type NavigationPage struct {
 	CountsScope    string          `json:"counts_scope"`
 	IndexState     string          `json:"index_state"`
 	NextOffset     int             `json:"-"`
+	Cursor         string          `json:"cursor"`
 }
 
 type navigationBranch struct {
@@ -63,6 +66,20 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 	branches := navigationTree(input, opts.Depth, opts.BudgetBytes/8)
 	focus := branches[input.Root].card
 	page := NavigationPage{Root: input.Root, Snapshot: input.Snapshot, View: opts.View, Location: focus, Ancestors: []MapNode{}, Nodes: []MapNode{}, Kinds: focus.Kinds, KindsTruncated: focus.KindsTruncated, Hubs: []NavigationHub{}, Records: len(input.Cards), Coverage: "truncated", ScanComplete: input.ScanComplete, CountsScope: "scan_window", IndexState: "authoritative"}
+	// Use exact ciphertext envelopes for the largest position in this window
+	// and for the next scan boundary. This keeps structural expansion independent
+	// of the current output offset while leaving room for every actual cursor.
+	if opts.CursorForOffset != nil {
+		for _, complete := range []bool{false, true} {
+			token, err := opts.CursorForOffset(len(branches), complete)
+			if err != nil {
+				return NavigationPage{}, err
+			}
+			if len(token) > len(page.Cursor) {
+				page.Cursor = token
+			}
+		}
+	}
 	// Ancestors are nearest-first and supplied only after authorization. Reserve
 	// no more than one quarter of the actual JSON budget for these anchors.
 	for _, ancestor := range input.Ancestors {
@@ -92,7 +109,7 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 	} else {
 		compress := func(p string) MapNode {
 			origin := p
-			if input.ScanComplete {
+			if input.ScanComplete && !input.PartialWindow {
 				for branches[p].card.ID == "" && len(branches[p].children) == 1 {
 					p = branches[p].children[0]
 				}
@@ -121,7 +138,7 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 		if err != nil {
 			return NavigationPage{}, err
 		}
-		for len(queue) > 0 && input.ScanComplete && len(initial) <= opts.BudgetBytes {
+		for len(queue) > 0 && input.ScanComplete && !input.PartialWindow && len(initial) <= opts.BudgetBytes {
 			current := queue[0]
 			queue = queue[1:]
 			children := branches[current.path].children
@@ -153,23 +170,47 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 		return NavigationPage{}, ErrInvalid
 	}
 	// Leave room for the real envelope, including a complete/truncated label.
-	// The next stage will supply snapshot-bound cursors; offsets stay internal.
+	// Raw offsets stay internal; the broker supplies authenticated envelopes.
 	page.OutputComplete = opts.Offset == len(frontier)
-	updateCoverage := func() {
+	updateCoverage := func() error {
+		if opts.CursorForOffset != nil {
+			token, err := opts.CursorForOffset(opts.Offset+len(page.Nodes), page.OutputComplete)
+			if err != nil {
+				return err
+			}
+			page.Cursor = token
+		}
 		page.Coverage = "truncated"
 		if page.ScanComplete && page.OutputComplete {
 			page.Coverage = "complete"
 		}
+		return nil
 	}
-	updateCoverage()
+	if err := updateCoverage(); err != nil {
+		return NavigationPage{}, err
+	}
 	size := func() (int, error) { raw, err := json.Marshal(page); return len(raw), err }
 	for index := opts.Offset; index < len(frontier); index++ {
 		page.Nodes = append(page.Nodes, frontier[index])
 		page.OutputComplete = index+1 == len(frontier)
-		updateCoverage()
+		if err := updateCoverage(); err != nil {
+			return NavigationPage{}, err
+		}
 		length, err := size()
 		if err != nil {
 			return NavigationPage{}, err
+		}
+		if length > opts.BudgetBytes && page.OutputComplete && opts.CursorForOffset != nil && !page.ScanComplete {
+			// A long private scan boundary can require an extra empty transition
+			// page. First finish this window using its shorter in-window cursor.
+			page.Cursor, err = opts.CursorForOffset(opts.Offset+len(page.Nodes), false)
+			if err != nil {
+				return NavigationPage{}, err
+			}
+			length, err = size()
+			if err != nil {
+				return NavigationPage{}, err
+			}
 		}
 		for length > opts.BudgetBytes && len(page.Nodes) == 1 && len(page.Ancestors) > 0 {
 			page.Ancestors = page.Ancestors[:len(page.Ancestors)-1]
@@ -201,7 +242,9 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 		if length > opts.BudgetBytes {
 			page.Nodes = page.Nodes[:len(page.Nodes)-1]
 			page.OutputComplete = false
-			updateCoverage()
+			if err := updateCoverage(); err != nil {
+				return NavigationPage{}, err
+			}
 			if len(page.Nodes) == 0 {
 				return NavigationPage{}, fmt.Errorf("%w: map card requires budget_bytes of at least %d (required size)", ErrInvalid, length)
 			}
@@ -316,7 +359,7 @@ func navigationTree(input NavigationInput, depth, kindBudget int) map[string]*na
 		if b.card.ID != "" {
 			b.card.EntryType = "document"
 			b.card.Actions = []string{"outline", "read"}
-			if len(b.children) > 0 || !input.ScanComplete {
+			if len(b.children) > 0 || !input.ScanComplete || input.PartialWindow {
 				b.card.EntryType = "document_branch"
 				b.card.Actions = append(b.card.Actions, "map")
 			}
