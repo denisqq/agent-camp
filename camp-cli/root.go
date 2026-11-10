@@ -26,7 +26,7 @@ func NewRoot() *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(
-		setupCmd(), registerCmd(), bridgeCmd(), doctorCmd(), connectCmd(),
+		setupCmd(), registerCmd(), bridgeCmd(), doctorCmd(), connectCmd(), bootstrapCmd(),
 		statusCmd(), upCmd(), downCmd(), configCmd(),
 	)
 	root.AddCommand(readycheckCmd())

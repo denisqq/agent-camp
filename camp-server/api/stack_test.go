@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/denisqq/agent-camp/camp-server/camp"
 	"github.com/denisqq/agent-camp/camp-server/index"
 	"github.com/denisqq/agent-camp/camp-server/objectstore"
@@ -121,11 +122,16 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 		t.Fatalf("discovery: %+v", discovered)
 	}
 	var entry camp.SessionView
-	call("start", map[string]any{"primary_space": discovered.Spaces[1].ID}, &entry)
+	var entryMap map[string]any
+	call("map", map[string]any{"space": discovered.Spaces[1].ID}, &entryMap)
+	call("start", map[string]any{"primary_space": discovered.Spaces[1].ID, "expected_snapshot": entryMap["snapshot"]}, &entry)
+	if entry.Snapshot != entryMap["snapshot"] {
+		t.Fatal("map-to-start snapshot changed")
+	}
 	examples := entry.Help["examples"].(map[string]any)
-	for _, name := range []string{"catalog", "rules", "read", "help"} {
+	for _, name := range []string{"map", "catalog", "rules", "outline", "read", "help"} {
 		var result camp.Receipt
-		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": strings.ReplaceAll(examples[name].(string), "/path/from/catalog", "/skills/review")}, &result)
+		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": strings.ReplaceAll(examples[name].(string), "/path/from/map", "/skills/review")}, &result)
 		if result.Status != "no_changes" {
 			t.Fatalf("entry example %s: %+v", name, result)
 		}
@@ -148,6 +154,19 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	sdkJSON, _ := json.Marshal(sdkOverview.Result)
 	if !bytes.Equal(directJSON, sdkJSON) {
 		t.Fatal("real SDK and direct map differ")
+	}
+	var treeOverview camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "sdk-tree-map", "code": "from camp_sdk import camp\ncamp.map('/', 2, 'shared', view='tree', budget_bytes=4096)"}, &treeOverview)
+	if treeOverview.Status != "no_changes" {
+		t.Fatalf("SDK tree options: %+v", treeOverview)
+	}
+	var treeResult map[string]any
+	rawTree, _ := json.Marshal(treeOverview.Result)
+	if err := json.Unmarshal(rawTree, &treeResult); err != nil {
+		t.Fatal(err)
+	}
+	if treeResult["view"] != "tree" || len(rawTree) > 4096 {
+		t.Fatalf("SDK map options not honored: %s", rawTree)
 	}
 	var catalog camp.Receipt
 	call("run", map[string]any{"session_id": start.ID, "operation_id": "catalog-visible", "code": "from camp_sdk import camp\ncamp.find(path='/skills/', kind='skill', space='shared', limit=5)"}, &catalog)
@@ -206,5 +225,54 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	snap, _ := store.Load(ctx, "alice")
 	if _, err = store.RecordByPath(ctx, snap, "/must-not-exist"); err == nil {
 		t.Fatal("partial commit")
+	}
+	var seededPages camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "seed-map-pages", "code": "from camp_sdk import camp\nfor i in range(18):\n    camp.write('/cursor-pages/doc-' + str(i), '# Source', kind='note', metadata={'description': '界' * 240})\n{'seeded': 18}"}, &seededPages)
+	if seededPages.Status != "completed" {
+		t.Fatalf("seed cursor stack: %+v", seededPages)
+	}
+	var firstPage camp.NavigationPage
+	call("map", map[string]any{"space": "alice", "path": "/cursor-pages", "view": "tree", "budget_bytes": 4096}, &firstPage)
+	if firstPage.Cursor == "" {
+		t.Fatal("stack fixture needs cursor")
+	}
+	var secondPage camp.NavigationPage
+	call("map", map[string]any{"space": "alice", "path": "/cursor-pages", "view": "tree", "budget_bytes": 4096, "cursor": firstPage.Cursor}, &secondPage)
+	seen := map[string]bool{}
+	page := firstPage
+	for i := 0; i < 20; i++ {
+		for _, node := range page.Nodes {
+			if seen[node.ID] {
+				t.Fatal("duplicate SDK continuation")
+			}
+			seen[node.ID] = true
+		}
+		if page.Cursor == "" {
+			break
+		}
+		var continued camp.Receipt
+		code := fmt.Sprintf("from camp_sdk import camp\ncamp.map('/cursor-pages', view='tree', cursor=%q, budget_bytes=4096)", page.Cursor)
+		call("run", map[string]any{"session_id": start.ID, "operation_id": fmt.Sprintf("map-page-%d", i), "code": code}, &continued)
+		if continued.Status != "no_changes" {
+			t.Fatalf("SDK cursor: %+v", continued)
+		}
+		raw, _ := json.Marshal(continued.Result)
+		if len(raw) > 4096 {
+			t.Fatal("SDK cursor exceeded budget")
+		}
+		page = camp.NavigationPage{}
+		if err = json.Unmarshal(raw, &page); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			a, _ := json.Marshal(page.Nodes)
+			b, _ := json.Marshal(secondPage.Nodes)
+			if !bytes.Equal(a, b) {
+				t.Fatal("MCP and SDK continuation disagree")
+			}
+		}
+	}
+	if len(seen) != 18 {
+		t.Fatalf("SDK pagination stranded sources: %d", len(seen))
 	}
 }

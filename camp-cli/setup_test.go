@@ -16,9 +16,14 @@ import (
 
 func TestSetupInstallsUsableLauncherAndRejectsRevokedCredential(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("CODEX_HOME", "")
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "config"))
 	t.Setenv("CAMP_CLIENT_CONFIG_DIR", filepath.Join(dir, "private"))
-	t.Chdir(dir)
+	work := t.TempDir()
+	t.Chdir(work)
 	revoked := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/identity" {
@@ -36,6 +41,13 @@ func TestSetupInstallsUsableLauncherAndRejectsRevokedCredential(t *testing.T) {
 	defer server.Close()
 	if err := setupRun(context.Background(), server.URL, "test-agent", []string{"cursor"}, false, false); err != nil {
 		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(work)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("setup modified task directory: %v %v", entries, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "hooks.json")); err != nil {
+		t.Fatal("setup omitted user startup hook:", err)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".cursor/mcp.json"))
 	if err != nil {

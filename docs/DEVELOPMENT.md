@@ -142,3 +142,54 @@ The public CLI, SDK, environment variables, and packages use Camp. The internal
 curation subject `brain-curator` keeps its historical name because persisted ACLs
 may grant that exact subject access. Renaming it requires an explicit migration
 of stored grants; it is not a public SDK name or an alias for `camp_sdk`.
+
+## Camp startup instructions
+
+After setting up a Camp profile, run `camp connect <client>` (`claude-code`,
+`codex`, or `cursor`). The default installation is user-wide and does not depend
+on the current directory or a Git repository. `camp setup` uses the same default.
+Use `--print` for a JSON preview of destination paths and Camp-owned additions;
+preview does not write files, contact Camp, or print unrelated private settings.
+Reload the client to load the integration.
+
+| Client | Default connection | Default startup delivery |
+|---|---|---|
+| Claude Code | `~/.claude.json` | `~/.claude/settings.json` SessionStart hook and `~/.claude/skills/using-agent-camp` |
+| Codex | `~/.codex/config.toml` | Effective nonempty `~/.codex/AGENTS.override.md` or `AGENTS.md`, plus `~/.agents/skills/using-agent-camp` |
+| Cursor | `~/.cursor/mcp.json` | `~/.cursor/hooks.json` sessionStart hook, owned script under `~/.cursor/hooks/`, and `~/.cursor/skills/using-agent-camp` |
+
+Absolute `CLAUDE_CONFIG_DIR` and `CODEX_HOME` values select custom client profiles.
+For Claude, the MCP file, settings, and skill use the custom directory. For
+Codex, configuration and global instructions use `CODEX_HOME`; user skills stay
+under `~/.agents/skills`, the client's documented user discovery location.
+
+The bootstrap requires initial orientation and bounded reading, and preserves
+significant results only when authorized. The agent chooses a space from the
+task, user context and discovery. No project or space ID is required in advance.
+An optional project association is extra context. Follow-up replies reuse the
+current task; unavailable service is reported, and independent work can continue.
+
+`camp connect <client> --project` remains available for a directory-specific
+installation. It adds local configuration plus a Claude hook, Codex instruction
+block, or Cursor always-applied rule. Project trust and normal instruction
+precedence apply. It does not remove or overwrite existing user integration.
+
+To remove startup delivery, remove only the managed block between
+`<!-- camp:bootstrap:start -->` and `<!-- camp:bootstrap:end -->` in the effective
+Codex instruction file, the Claude SessionStart handler whose `statusMessage` is
+`Camp workflow` (or the earlier `Camp project workflow`), or the Cursor
+`sessionStart` entry invoking the owned `agent-camp-bootstrap` script. Remove
+that owned script too if no longer referenced. For a project Cursor install,
+remove its owned `.cursor/rules/agent-camp.mdc`. Preserve unrelated instructions
+and hooks. Installation output lists the exact paths for the selected scope.
+
+To remove the connection too, remove only its named MCP entry/table and the
+`using-agent-camp` skill directory. Existing files are backed up as `.camp-backup`
+before replacement; backups may contain private settings and should not be
+committed. Remove them when no longer needed. Existing directory-specific Camp
+entries from earlier installs remain in place and can override user entries;
+review them explicitly if switching profiles.
+
+See the [validation and support matrix](evaluations/camp-bootstrap.md). User-level
+Cursor hooks apply to local clients; cloud agents do not load your local home
+directory, so use project or managed configuration there.

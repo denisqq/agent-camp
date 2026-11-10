@@ -106,13 +106,17 @@ def main():
         env = os.environ.copy()
         # No inherited checkout/runtime/credential settings can make this pass.
         for key in list(env):
-            if key.startswith("CAMP_"):
+            if key.startswith("CAMP_") or key in ("CODEX_HOME", "CLAUDE_CONFIG_DIR"):
                 del env[key]
+        home = work / "home"
+        home.mkdir()
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
         base = f"http://127.0.0.1:{server.server_port}"
         env.update(CAMP_RELEASE_BASE=base, CAMP_RUNTIME_BASE=base,
+                   HOME=str(home), USERPROFILE=str(home),
+                   XDG_CONFIG_HOME=str(home / ".config"),
                    CAMP_CONFIG=str(work / "config/camp.json"),
                    CAMP_CLIENT_CONFIG_DIR=str(work / "private"),
                    XDG_CACHE_HOME=str(work / "cache"),
@@ -133,18 +137,24 @@ def main():
             print(f"Native hostname length: {len(socket.gethostname().encode())} bytes", flush=True)
             run([*command, "setup", "--clients", "cursor"], client, env)
             profile = json.loads((work / "private/profiles/profile-local.json").read_text())
-            entry = json.loads((client / ".cursor/mcp.json").read_text())["mcpServers"]["agent-camp"]
+            entry = json.loads((home / ".cursor/mcp.json").read_text())["mcpServers"]["agent-camp"]
+            assert not list(client.iterdir()), "user setup must leave the current directory untouched"
             launcher = entry["command"]
             assert Path(launcher).is_absolute() and str(work / "install") in launcher
             assert version in run([launcher, "--version"], client, env)
+            hooks = json.loads((home / ".cursor/hooks.json").read_text())
+            hook = hooks["hooks"]["sessionStart"][0]["command"]
+            context = json.loads(run(["sh", "-c", hook], client, env))
+            assert "using-agent-camp" in context["additional_context"], context
             reports = json.loads(run([launcher, "doctor", "--write", "--json"], client, env))
             assert any("write/read check passed" in r.get("detail", "") for r in reports), reports
             shutil.rmtree(work / "npm-cache")
             mcp_check(launcher, entry["args"], client, env)
             run([launcher, "setup", "--clients", "cursor"], client, env)
+            assert not list(client.iterdir()), "user reconnect must leave the current directory untouched"
             again = json.loads((work / "private/profiles/profile-local.json").read_text())
             assert again["agent_id"] == profile["agent_id"] and again["user_id"] == profile["user_id"]
-            print("release smoke passed: npm install, setup, real SDK write, MCP after cache removal, stable reconnect")
+            print("release smoke passed: npm install, user setup, startup hook, real SDK write, MCP after cache removal, stable reconnect")
         finally:
             if launcher:
                 subprocess.run([launcher, "down"], cwd=client, env=env, capture_output=True, timeout=20)

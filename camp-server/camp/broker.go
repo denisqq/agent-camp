@@ -12,21 +12,23 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 )
 
 type Execution struct {
-	Principal    Principal
-	Primary      string
-	Snapshots    map[string]Snapshot
-	Staged       map[string]Revision
-	Proposals    map[string]string
-	Dependencies []Dependency
-	CursorKey    []byte
-	Calls        int
-	Bytes        int
-	Closed       bool
+	Principal      Principal
+	Primary        string
+	Snapshots      map[string]Snapshot
+	Staged         map[string]Revision
+	Proposals      map[string]string
+	Dependencies   []Dependency
+	CursorKey      []byte
+	Calls          int
+	Bytes          int
+	Closed         bool
+	mapSessionless bool
 }
 type Broker struct {
 	Store  *Store
@@ -34,7 +36,9 @@ type Broker struct {
 	Search Searcher
 	// Status, when set, reports curation job state for a JobKey. Deployments
 	// wire it to the control-plane job store.
-	Status func(ctx context.Context, key string) (state string, attempts int, found bool, err error)
+	Status      func(ctx context.Context, key string) (state string, attempts int, found bool, err error)
+	mapCursorMu sync.Mutex
+	mapCursors  *mapCursorKeyState
 }
 type Searcher interface {
 	QueryPage(context.Context, string, string, string, int, int, string) (SearchPage, error)

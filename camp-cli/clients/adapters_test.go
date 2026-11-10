@@ -56,7 +56,7 @@ func TestMergePreservesOtherMCPServers(t *testing.T) {
 	if err := os.WriteFile(".mcp.json", []byte(existing), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(ClaudeCode, Scope{}, testProfile(dir), ""); err != nil {
+	if _, err := Install(ClaudeCode, Scope{Project: true, Root: "."}, testProfile(dir), ""); err != nil {
 		t.Fatal(err)
 	}
 	doc := readJSON(t, ".mcp.json")
@@ -82,7 +82,7 @@ func TestInvalidConfigIsNotOverwritten(t *testing.T) {
 	if err := os.WriteFile(".mcp.json", []byte(`{not json`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Install(ClaudeCode, Scope{}, testProfile(dir), ""); err == nil {
+	if _, err := Install(ClaudeCode, Scope{Project: true, Root: "."}, testProfile(dir), ""); err == nil {
 		t.Fatal("invalid config must not be overwritten")
 	}
 	body, _ := os.ReadFile(".mcp.json")
@@ -96,7 +96,7 @@ func TestRepeatInstallHasOneEntry(t *testing.T) {
 	dir := t.TempDir()
 	profile := testProfile(dir)
 	for i := 0; i < 3; i++ {
-		if _, err := Install(ClaudeCode, Scope{}, profile, ""); err != nil {
+		if _, err := Install(ClaudeCode, Scope{Project: true, Root: "."}, profile, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -120,11 +120,11 @@ func TestArgumentsAfterClientKeepValues(t *testing.T) {
 	chdirTemp(t)
 	dir := t.TempDir()
 	profile := testProfile(dir)
-	if _, err := Install(Cursor, Scope{}, profile, ""); err != nil {
+	if _, err := Install(Cursor, Scope{Project: true, Root: "."}, profile, ""); err != nil {
 		t.Fatal(err)
 	}
 	profile.Launcher = filepath.Join(dir, "camp-new")
-	if _, err := Install(Cursor, Scope{}, profile, ""); err != nil {
+	if _, err := Install(Cursor, Scope{Project: true, Root: "."}, profile, ""); err != nil {
 		t.Fatal(err)
 	}
 	doc := readJSON(t, filepath.Join(".cursor", "mcp.json"))
@@ -152,7 +152,7 @@ func TestPrivateProfileDoesNotLeakCredentials(t *testing.T) {
 	previous, _ := os.Getwd()
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(previous) })
-	if _, err := Install(ClaudeCode, Scope{}, profile, ""); err != nil {
+	if _, err := Install(ClaudeCode, Scope{Project: true, Root: "."}, profile, ""); err != nil {
 		t.Fatal(err)
 	}
 	// The token appears only in the private credential file (0600), never
@@ -200,7 +200,7 @@ func TestClientWithoutShellEnvironment(t *testing.T) {
 	chdirTemp(t)
 	dir := t.TempDir()
 	profile := testProfile(dir)
-	if _, err := Install(ClaudeCode, Scope{}, profile, ""); err != nil {
+	if _, err := Install(ClaudeCode, Scope{Project: true, Root: "."}, profile, ""); err != nil {
 		t.Fatal(err)
 	}
 	doc := readJSON(t, ".mcp.json")

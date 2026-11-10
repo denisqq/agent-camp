@@ -28,9 +28,10 @@ type RunStateStore interface {
 }
 
 type StartRequest struct {
-	Space     string `json:"primary_space"`
-	Task      string `json:"task,omitempty"`
-	SessionID string `json:"session_id,omitempty"`
+	Space            string `json:"primary_space"`
+	Task             string `json:"task,omitempty"`
+	SessionID        string `json:"session_id,omitempty"`
+	ExpectedSnapshot string `json:"expected_snapshot,omitempty" jsonschema:"Require the new primary session snapshot to equal this space map snapshot; conflict means remap and retry. Invalid with session_id"`
 }
 type RunRequest struct {
 	SessionID   string `json:"session_id"`
@@ -74,6 +75,9 @@ func NewSessions(b *Broker, x Executor) *Sessions {
 
 func (s *Sessions) Start(ctx context.Context, p Principal, r StartRequest) (SessionView, error) {
 	if r.SessionID != "" {
+		if r.ExpectedSnapshot != "" {
+			return SessionView{}, fmt.Errorf("%w: expected_snapshot is only valid for new sessions", ErrInvalid)
+		}
 		st, _, err := s.load(ctx, p, r.SessionID)
 		if err != nil {
 			return SessionView{}, err
@@ -83,6 +87,9 @@ func (s *Sessions) Start(ctx context.Context, p Principal, r StartRequest) (Sess
 	e, err := s.Broker.Begin(ctx, p, r.Space)
 	if err != nil {
 		return SessionView{}, err
+	}
+	if r.ExpectedSnapshot != "" && e.Snapshots[e.Primary].Commit != r.ExpectedSnapshot {
+		return SessionView{}, fmt.Errorf("%w: map snapshot changed; map the primary space again before start", ErrConflict)
 	}
 	now := s.Now()
 	st := SessionState{ID: ID(), Principal: p.TokenHash, Primary: r.Space, Snapshots: e.Snapshots, CursorKey: e.CursorKey, Created: now, LastUsed: now, SDKVersion: "v1"}
@@ -95,12 +102,15 @@ func sessionView(st SessionState) SessionView {
 	help := SDKHelp("")
 	help["primary_space"] = st.Primary
 	help["examples"] = map[string]string{
+		"map":     "from camp_sdk import camp\ncamp.map('/')",
 		"catalog": "from camp_sdk import camp\ncamp.ls('/', limit=10)",
 		"rules":   "from camp_sdk import camp\ncamp.find(kind='constitution', limit=5)",
-		"read":    "from camp_sdk import camp\ncamp.read('/path/from/catalog', start_line=1, limit=40)",
+		"outline": "from camp_sdk import camp\ncamp.outline('/path/from/map')",
+		"read":    "from camp_sdk import camp\ncamp.read('/path/from/map', start_line=1, limit=40)",
 		"help":    "from camp_sdk import camp\ncamp.help('navigation')",
 	}
-	help["workflow"] = "Use run(session_id, operation_id, code) with these examples. Discover rules in this space and any relevant shared space returned by map(); read returned rule paths before applied methods. Catalog entries contain paths and metadata; replace the read example path with one returned by the catalog. Read progressively; check truncated/coverage and follow cursors. Use a new operation_id for new code; identical retries reuse it."
+	help["workflow"] = "Use run(session_id, operation_id, code) with these examples. Inspect map cards, choose a document path, inspect its outline, then read the needed line range; replace /path/from/map with that path. Discover rules in this space and any relevant shared space returned by map(); read returned rule paths before applied methods. Check truncated/coverage and follow cursors. Use a new operation_id for new code; identical retries reuse it."
+	help["snapshot_handoff"] = "For a new session, pass the primary space map's snapshot as start(primary_space=id, expected_snapshot=page.snapshot). A conflict saves no session: map the primary space again, reconsider the cards, then retry start with the new snapshot. Omission selects the current snapshot. expected_snapshot is invalid with session_id; resume preserves the existing session snapshot. The precondition covers only the primary space."
 	return SessionView{st.ID, st.Snapshots[st.Primary].Commit, st.SDKVersion, help}
 }
 func (s *Sessions) load(ctx context.Context, p Principal, id string) (SessionState, string, error) {

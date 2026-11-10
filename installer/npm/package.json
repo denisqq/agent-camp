@@ -1,6 +1,6 @@
 {
   "name": "agent-camp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Workspace engine for teams of AI agents \u2014 shared, versioned, transactional.",
   "license": "Apache-2.0",
   "repository": "https://github.com/denisqq/agent-camp",
