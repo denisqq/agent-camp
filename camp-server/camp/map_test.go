@@ -52,7 +52,7 @@ func TestMapShowsLayoutAndSkipsInaccessible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := b.Call(ctx, e, "map", map[string]any{"path": "/", "depth": 2})
+	result, err := b.Call(ctx, e, "map", map[string]any{"path": "/", "depth": 2, "view": "tree"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestMapBoundsOutputAndReportsTruncation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := b.Call(ctx, e, "map", map[string]any{})
+	result, err := b.Call(ctx, e, "map", map[string]any{"view": "tree"})
 	if err != nil {
 		t.Fatal(err)
 	}

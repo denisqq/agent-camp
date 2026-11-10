@@ -149,6 +149,19 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	if !bytes.Equal(directJSON, sdkJSON) {
 		t.Fatal("real SDK and direct map differ")
 	}
+	var treeOverview camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "sdk-tree-map", "code": "from camp_sdk import camp\ncamp.map('/', 2, 'shared', view='tree', budget_bytes=4096)"}, &treeOverview)
+	if treeOverview.Status != "no_changes" {
+		t.Fatalf("SDK tree options: %+v", treeOverview)
+	}
+	var treeResult map[string]any
+	rawTree, _ := json.Marshal(treeOverview.Result)
+	if err := json.Unmarshal(rawTree, &treeResult); err != nil {
+		t.Fatal(err)
+	}
+	if treeResult["view"] != "tree" || len(rawTree) > 4096 {
+		t.Fatalf("SDK map options not honored: %s", rawTree)
+	}
 	var catalog camp.Receipt
 	call("run", map[string]any{"session_id": start.ID, "operation_id": "catalog-visible", "code": "from camp_sdk import camp\ncamp.find(path='/skills/', kind='skill', space='shared', limit=5)"}, &catalog)
 	if catalog.Status != "no_changes" {

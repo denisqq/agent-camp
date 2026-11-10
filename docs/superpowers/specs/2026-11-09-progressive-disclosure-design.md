@@ -18,7 +18,7 @@ turn. A ranked selection of passages must not substitute for the workspace map.
 
 The user asked for an idea and algorithm first, then scientific references and
 comparable implementations, specifically modern research and Trail-code.
-The user subsequently accepted the algorithm at a high level. Implementation has started; adaptive views and continuation remain pending.
+The user subsequently accepted the algorithm at a high level. Implementation has started; adaptive views are implemented; continuation and snapshot handoff remain pending.
 
 ## Current implementation
 
@@ -26,16 +26,19 @@ The user subsequently accepted the algorithm at a high level. Implementation has
 navigation to `Broker.spaceMap` in `camp-server/camp/documents.go`.
 
 - Discovery lists accessible spaces and root action hints.
-- A space map accepts a path and depth (1–4, default 2).
+- A space map accepts a path, depth (1–4, default 2), adaptive/tree view and byte budget.
 - It scans up to 3,000 records, checks visibility, aggregates path counts and
   kinds, and reports up to ten hubs by incoming relation count.
-- Nodes are sorted by path and capped at 100. The JSON response is capped at
-  12 KiB by removing trailing nodes, then hubs.
+- The default view folds large branches, expands complete small branches and
+  shortens synthetic single-child chains. The compatibility tree view retains
+  depth-based grouping. Response JSON defaults to 12 KiB, configurable from
+  4–32 KiB, with explicit output omission.
 - The response carries a snapshot and coverage indication.
 
-This describes layout, but gives little help distinguishing the purpose of
-documents. Uniform depth does not adapt to the shape of the tree. Output
-truncation favors earlier paths and does not provide a continuation cursor.
+Descriptive cards and adaptive structure now help orient within the tree.
+Public output truncation still favors earlier paths and does not yet provide a
+continuation cursor; narrower maps and paginated `ls` remain necessary for an
+exhaustive traversal.
 Incoming link count indicates connectivity, not relevance, validity, or authority.
 
 ## Approaches discussed

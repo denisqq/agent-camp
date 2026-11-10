@@ -52,8 +52,8 @@ class Camp:
     def ls(self, path="/", cursor="", limit=50, space=""):
         return self._call("ls", dict(path=path, cursor=cursor, limit=limit, space=space))
 
-    def map(self, path="/", depth=2, space=""):
-        return self._call("map", dict(path=path, depth=depth, space=space))
+    def map(self, path="/", depth=2, space="", *, view="adaptive", budget_bytes=12288):
+        return self._call("map", dict(path=path, depth=depth, space=space, view=view, budget_bytes=budget_bytes))
 
     def find(self, path="/", kind="", metadata=None, cursor="", limit=50, space=""):
         return self._call("find", dict(path=path, kind=kind, metadata=metadata or {}, cursor=cursor, limit=limit, space=space))

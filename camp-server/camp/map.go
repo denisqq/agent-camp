@@ -9,9 +9,11 @@ import (
 )
 
 type MapRequest struct {
-	Space string `json:"space,omitempty" jsonschema:"Omit to discover accessible spaces; otherwise use an id returned by map()"`
-	Path  string `json:"path,omitempty" jsonschema:"Directory prefix; defaults to /"`
-	Depth *int   `json:"depth,omitempty" jsonschema:"Tree depth from 1 to 4; defaults to 2"`
+	Space       string `json:"space,omitempty" jsonschema:"Omit to discover accessible spaces; otherwise use an id returned by map()"`
+	Path        string `json:"path,omitempty" jsonschema:"Directory prefix; defaults to /"`
+	Depth       *int   `json:"depth,omitempty" jsonschema:"Tree depth from 1 to 4; defaults to 2"`
+	View        string `json:"view,omitempty" jsonschema:"adaptive (default) expands small branches and shortens empty chains; tree preserves the depth-based outline"`
+	BudgetBytes *int   `json:"budget_bytes,omitempty" jsonschema:"Maximum serialized result bytes, 4096 to 32768; defaults to 12288"`
 }
 
 // Map is a read-only orientation request: no durable session or Python runtime
@@ -22,6 +24,9 @@ func (b *Broker) Map(ctx context.Context, p Principal, r MapRequest) (map[string
 	defer cancel()
 	b = b.withReadCache()
 	if r.Space == "" {
+		if r.View != "" || r.BudgetBytes != nil {
+			return nil, ErrInvalid
+		}
 		if (r.Path != "" && r.Path != "/") || (r.Depth != nil && (*r.Depth < 1 || *r.Depth > 4)) {
 			return nil, ErrInvalid
 		}
@@ -32,6 +37,12 @@ func (b *Broker) Map(ctx context.Context, p Principal, r MapRequest) (map[string
 		return nil, err
 	}
 	args := map[string]any{"path": r.Path}
+	if r.View != "" {
+		args["view"] = r.View
+	}
+	if r.BudgetBytes != nil {
+		args["budget_bytes"] = *r.BudgetBytes
+	}
 	if r.Depth != nil {
 		args["depth"] = *r.Depth
 	}

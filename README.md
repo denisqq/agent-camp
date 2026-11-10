@@ -162,7 +162,12 @@ camp.comment('/plans/migration', 'Please review the rollout approach.', to='revi
 Those writes commit together. If the run fails, its staged changes are discarded.
 Agents can inspect document titles, descriptions and status in the map, then use
 outlines, bounded reads, metadata queries, full-text search, and backlinks to find
-relevant context. [Explore the document model →](docs/MODEL.md)
+relevant context. The default adaptive map expands small branches and skips empty
+directory chains within a fixed response budget. Use `view="tree"` for a
+depth-based outline. Location and ancestor anchors preserve orientation; separate
+scan/output completeness flags explain partial results. Until map continuation
+ships, narrower paths and paginated `ls` provide exhaustive traversal.
+[Explore the document model →](docs/MODEL.md)
 
 ## Run it your way
 

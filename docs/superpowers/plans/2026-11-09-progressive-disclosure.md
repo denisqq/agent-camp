@@ -32,7 +32,7 @@
 
 This is the server/navigation plan. [The bootstrap integration plan](2026-11-09-camp-bootstrap.md) is independently shippable and can use today's map. Suggested order: bootstrap, then this plan, then the combined acceptance checks.
 
-Only documentation is being written now. The following defaults are implementation proposals made to resolve the discussion's open details; they are not claims that the user selected each field or numeric limit.
+Implementation is in progress. The following defaults resolve open implementation details; they are builder decisions, not claims that the user selected each field or numeric limit.
 
 ## Proposed contract
 
@@ -75,14 +75,14 @@ Only documentation is being written now. The following defaults are implementati
 
 **Interfaces:** `renderNavigation(input NavigationInput, opts NavigationOptions) (NavigationPage, error)` is pure. Input includes authorized cards, root, snapshot and scan-window completeness; options include view, depth, budget, and output offset. Output includes response nodes and the next output offset.
 
-- [ ] Add `TestAdaptiveNavigationFrontier`: documents that also contain descendants retain both read and expand actions; synthetic branches have no invented descriptions; a single-child chain skips intermediate empty nodes but records its path; depth cap and direct expansion work.
-- [ ] Add `TestNavigationBudgetAndCoverage`: root with 250 siblings, 1 KiB paths, repeated titles and multibyte descriptions fits every allowed byte budget; every omitted item has a continuation route; invalid budgets/depth/view are rejected. Empty accessible space is a complete empty result.
-- [ ] Run the targeted tests and confirm failure before implementation.
-- [ ] Implement deterministic expansion: initially group by the first path segment below the focus; preserve exact-root document separately. Expand only confirmed-complete branches with at most eight direct children, within depth and byte budget. Visit expansion candidates by relative depth then path. Do not split based on popularity. Never assume an unfinished scan window contains a complete branch.
-- [ ] Always retain the current-location anchor. Add authorized ancestors nearest-first within a reserved maximum of one quarter of the budget; expose an upward action for ancestors not shown. Optional hubs are subordinate to navigable cards and remain labeled connectivity hints. Paginate cards instead of silently dropping them. Reserve actual serialized cursor/envelope space, not an estimated token count.
-- [ ] Bound auxiliary kind dictionaries to 32 displayed kinds with explicit truncation; counts and full kind names remain accessible through catalog/record reads. If required card fields cannot fit the minimum budget, return an explicit invalid-budget error with the required size; never loop on a page that cannot make progress. Cursor pagination is completed in Task 3; pure-renderer tests here assert the output offset and coverage of subsequent rendered slices.
-- [ ] Retain `view="tree"` compatibility and legacy fields, add explicit count/completeness semantics, update behavior docs, and pass the targeted and existing map suites.
-- [ ] Run the full check chain before committing `feat: add adaptive bounded workspace maps`.
+- [x] Add `TestAdaptiveNavigationFrontier`: documents that also contain descendants retain both read and expand actions; synthetic branches have no invented descriptions; a single-child chain skips intermediate empty nodes but records its path; depth cap and direct expansion work.
+- [x] Add `TestNavigationBudgetAndCoverage`: root with 250 siblings, 1 KiB paths, repeated titles and multibyte descriptions fits every allowed byte budget; every omitted item has a continuation route; invalid budgets/depth/view are rejected. Empty accessible space is a complete empty result.
+- [x] Run the targeted tests and confirm failure before implementation.
+- [x] Implement deterministic expansion: initially group by the first path segment below the focus; preserve exact-root document separately. Expand only confirmed-complete branches with at most eight direct children, within depth and byte budget. Visit expansion candidates by relative depth then path. Do not split based on popularity. Never assume an unfinished scan window contains a complete branch.
+- [x] Always retain the current-location anchor. Add authorized ancestors nearest-first within a reserved maximum of one quarter of the budget; expose an upward action for ancestors not shown. Optional hubs are subordinate to navigable cards and remain labeled connectivity hints. Paginate cards instead of silently dropping them. Measure the actual serialized envelope, not an estimated token count; Task 3 must additionally reserve the actual serialized cursor.
+- [x] Bound auxiliary kind dictionaries to 32 displayed kinds with explicit truncation; counts and full kind names remain accessible through catalog/record reads. If required card fields cannot fit the minimum budget, return an explicit invalid-budget error with the required size; never loop on a page that cannot make progress. Cursor pagination is completed in Task 3; pure-renderer tests here assert the output offset and coverage of subsequent rendered slices.
+- [x] Retain `view="tree"` compatibility and legacy fields, add explicit count/completeness semantics, update behavior docs, and pass the targeted and existing map suites.
+- [x] Run the full check chain before committing `feat: add adaptive bounded workspace maps`.
 
 ## Task 3: Snapshot-bound continuation, including large spaces
 
@@ -136,8 +136,19 @@ map regressions. Cards use authorized resolved revisions, including own staged
 metadata for existing records. README, MODEL, MCP descriptions and SDK help
 explain the new fields. Existing map size and object-read limits remain.
 
-Adaptive rendering, continuation, snapshot handoff and agent quality evaluation
-(Tasks 2–5) remain unimplemented. No exhaustive map coverage or completion of this
+Task 2's adaptive view is implemented in `navigation_view.go`, with byte-bounded
+pages, authorized ancestor anchors and explicit scan/output completeness. The
+internal renderer exposes output offsets for Task 3; these are not public
+continuation tokens. Compact branch storage scales with records and requested
+depth rather than every empty path segment. Kind dictionaries are bounded by
+both count and bytes, and optional dictionaries/ancestors yield to a first source
+card. Python keyword-only `view` and `budget_bytes` options were brought forward
+from Task 4 so both MCP and SDK callers can select the compatibility tree view.
+[Validation and performance observations](../../evaluations/progressive-disclosure.md)
+record what has been checked and what remains unmeasured.
+
+Continuation, snapshot handoff and agent quality evaluation (Tasks 3–5) remain
+unimplemented. No exhaustive map coverage or completion of this
 entire plan is claimed. Use `ls` continuation or narrower maps until continuation
-ships. The user requested a PR covering the implemented cards and client-wide
-bootstrap, while these remaining navigation tasks stay explicitly pending.
+ships. PR #4 covers descriptive cards and client-wide bootstrap. The adaptive view is
+a subsequent change; the remaining navigation tasks stay explicitly pending.

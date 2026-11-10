@@ -108,7 +108,17 @@ disjoint documents; contention is per document, not per space.
 
 ## Navigation cards
 
-`map(space=...)` profiles the accessible path tree. A visible node that is also
+`map(space=...)` profiles the accessible path tree. Its default `view="adaptive"`
+shows immediate branches, shortens empty single-child chains, and expands
+confirmed-complete branches with at most eight direct children when the response
+budget allows. Expansion proceeds by depth then path; it never ranks by an
+agent's task. `depth` (1–4, default 2) limits automatic expansion steps; a
+compressed chain may jump deeper. `collapsed_from` identifies the skipped branch.
+Directly mapping any returned path remains available. `view="tree"` retains the
+depth-based outline instead. The SDK keeps its existing positional arguments:
+`camp.map('/', 2, 'workspace', view='tree', budget_bytes=4096)`.
+
+A visible node that is also
 an actual document includes its stable `id`, exact `revision`, `kind`, `title`,
 optional `description` and `status`, and suggested `outline`/`read` actions. Nodes
 with children also expose `map`; synthetic branches have only structural counts
@@ -124,7 +134,28 @@ accurately describes the body.
 
 Display titles, descriptions and status values are bounded to 120, 240 and 64
 Unicode code points respectively; `text_truncated` reports shortening. Paths,
-record IDs and revisions stay exact. Existing snapshot, authorization, coverage
-and overall map response limits apply. Document contents remain available through
-`outline` and bounded `read`; the current map can still truncate the inventory,
-so use narrower paths or the paginated `ls` catalog for exhaustive traversal.
+record IDs and revisions stay exact. `location` always anchors the requested
+path; `ancestors` lists authorized anchors nearest first, and `up_path` offers a
+direct upward request. Ancestors carry no descendant summaries. Optional ancestor
+anchors and connectivity hubs yield to navigable cards when space is tight.
+
+`budget_bytes` bounds serialized result JSON (excluding the transport envelope),
+defaults to 12,288, and accepts 4,096–32,768. Global and per-node kind dictionaries
+display at most 32 kinds and use at most one eighth of the response budget each;
+`kinds_truncated` marks omitted kinds. No path or identity is shortened to make it
+fit; a card that cannot fit produces an explicit invalid-budget error with its
+required size. Maps remain subject to snapshot and current authorization checks.
+
+`scan_complete` describes the bounded scan of at most 3,000 stored records;
+`output_complete` describes the selected structural view, including folded
+branches, rather than a flat list of every document. `coverage` is `complete`
+only when both are true. Counts include only accessible records within the
+requested subtree's scan window (`counts_scope="scan_window"`), including a
+document at the requested path. `index_state="authoritative"` identifies direct
+store reads; no asynchronous index watermark is implied. Partial scans never
+justify chain compression or automatic branch expansion; documents retain an
+expand action because unseen descendants may exist.
+
+Document contents remain available through `outline` and bounded `read`. Public
+map continuation is not implemented yet: when coverage is truncated, use narrower
+paths or the paginated `ls` catalog for exhaustive traversal.

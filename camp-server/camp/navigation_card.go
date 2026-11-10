@@ -21,6 +21,8 @@ type MapNode struct {
 	DescriptionSource string         `json:"description_source,omitempty"`
 	Status            string         `json:"status,omitempty"`
 	TextTruncated     bool           `json:"text_truncated,omitempty"`
+	KindsTruncated    bool           `json:"kinds_truncated,omitempty"`
+	CollapsedFrom     string         `json:"collapsed_from,omitempty"`
 }
 
 func navigationCard(rec Record, rev Revision) MapNode {

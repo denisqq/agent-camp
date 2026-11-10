@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
+	"path"
 	"sort"
-	"strings"
 )
 
 func (b *Broker) spaceMap(ctx context.Context, e *Execution, space string, a map[string]any) (any, error) {
@@ -14,7 +15,6 @@ func (b *Broker) spaceMap(ctx context.Context, e *Execution, space string, a map
 	if err != nil {
 		return nil, err
 	}
-
 	root := str(a, "path")
 	if root == "" {
 		root = "/"
@@ -23,26 +23,32 @@ func (b *Broker) spaceMap(ctx context.Context, e *Execution, space string, a map
 	if err != nil {
 		return nil, err
 	}
-	depth := number(a, "depth", 2)
-	if depth < 1 || depth > 4 {
-		return nil, ErrInvalid
+	opts, err := navigationOptions(a)
+	if err != nil {
+		return nil, err
 	}
-	nodes := map[string]*MapNode{}
+	if err = b.allow(ctx, e, space, root, "read"); err != nil {
+		return nil, err
+	}
+	input := NavigationInput{Root: root, Snapshot: snap.Commit, ScanComplete: true}
 	inDegree := map[string]int{}
 	paths := map[string]string{}
-	kinds := map[string]int{}
-	total, scanned := 0, 0
+	scanned := 0
 	after := ""
-complete:
-	for scanned < 3000 {
-		records, next, err := b.Store.List(ctx, snap, root, after, 100)
+scan:
+	for {
+		records, next, err := b.Store.List(ctx, snap, root, after, min(100, 3001-scanned))
 		if err != nil {
 			return nil, err
 		}
 		for _, rec := range records {
+			// One-record lookahead distinguishes an exact full window from overflow.
+			if scanned == 3000 {
+				input.ScanComplete = false
+				break scan
+			}
 			scanned++
-			resolved, rev, resolveErr := b.resolve(ctx, e, space, rec.Path, "")
-			err = resolveErr
+			rec, rev, err := b.resolve(ctx, e, space, rec.Path, "")
 			if err != nil {
 				if ctx.Err() != nil {
 					return nil, ctx.Err()
@@ -52,13 +58,7 @@ complete:
 				}
 				return nil, err
 			}
-			rec = resolved
-			total++
-			if rec.Path == root {
-				card := navigationCard(rec, rev)
-				card.Kinds = map[string]int{}
-				nodes[root] = &card
-			}
+			input.Cards = append(input.Cards, navigationCard(rec, rev))
 			paths[rec.ID] = rec.Path
 			if relations, ok := rec.Metadata["relations"].([]any); ok {
 				for _, raw := range relations {
@@ -69,118 +69,117 @@ complete:
 					}
 				}
 			}
-			if rec.Path == root {
-				continue
-			}
-			rel := strings.TrimPrefix(strings.TrimPrefix(rec.Path, root), "/")
-			parts := strings.Split(rel, "/")
-			for d := 1; d <= depth && d <= len(parts); d++ {
-				dir := root
-				if root != "/" {
-					dir = root + "/"
-				}
-				dir += strings.Join(parts[:d], "/")
-				n := nodes[dir]
-				if n == nil {
-					n = &MapNode{Path: dir, Kinds: map[string]int{}}
-					nodes[dir] = n
-				}
-				if rec.Path == dir {
-					card := navigationCard(rec, rev)
-					card.Count, card.Kinds = n.Count, n.Kinds
-					*n = card
-				}
-				n.Count++
-				n.Kinds[rec.Kind]++
-			}
-			if rec.Path != root {
-				kinds[rec.Kind]++
-			}
 		}
 		if next == "" {
-			break complete
+			break
 		}
 		after = next
 	}
-	ordered := make([]*MapNode, 0, len(nodes))
-	if focus := nodes[root]; focus != nil {
-		focus.Count = total
-		for kind, count := range kinds {
-			focus.Kinds[kind] = count
-		}
-		focus.Kinds[focus.Kind]++
-	}
-	for _, n := range nodes {
-		n.EntryType = "branch"
-		n.Actions = []string{"map"}
-		if n.ID != "" {
-			n.EntryType = "document"
-			n.Actions = []string{"outline", "read"}
-			if n.Count > 1 {
-				n.EntryType = "document_branch"
-				n.Actions = append(n.Actions, "map")
-			}
-		}
-		ordered = append(ordered, n)
-	}
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Path < ordered[j].Path })
-	type hub struct {
-		Path   string `json:"path"`
-		InLink int    `json:"in_links"`
-	}
-	hubs := []hub{}
 	for id, degree := range inDegree {
-		if p, ok := paths[id]; ok && degree >= 1 {
-			hubs = append(hubs, hub{p, degree})
+		if p, ok := paths[id]; ok {
+			input.Hubs = append(input.Hubs, NavigationHub{Path: p, InLinks: degree})
 		}
 	}
-	sort.Slice(hubs, func(i, j int) bool { return hubs[i].InLink > hubs[j].InLink })
-	if len(hubs) > 10 {
-		hubs = hubs[:10]
-	}
-	coverage := "complete"
-	if scanned >= 3000 {
-		coverage = "truncated"
-	}
-	if err := ctx.Err(); err != nil {
+	sort.Slice(input.Hubs, func(i, j int) bool {
+		if input.Hubs[i].InLinks != input.Hubs[j].InLinks {
+			return input.Hubs[i].InLinks > input.Hubs[j].InLinks
+		}
+		return input.Hubs[i].Path < input.Hubs[j].Path
+	})
+	if input.Ancestors, err = b.navigationAncestors(ctx, e, space, root); err != nil {
 		return nil, err
 	}
-	// A map is an orientation response, not a dump of every directory.
-	if len(ordered) > 100 {
-		ordered = ordered[:100]
-		coverage = "truncated"
+	page, err := renderNavigation(input, opts)
+	if err != nil {
+		return nil, err
 	}
-	kindNames := make([]string, 0, len(kinds))
-	for kind := range kinds {
-		kindNames = append(kindNames, kind)
+	if err = ctx.Err(); err != nil {
+		return nil, err
 	}
-	sort.Strings(kindNames)
-	if len(kindNames) > 32 {
-		for _, kind := range kindNames[32:] {
-			delete(kinds, kind)
+	// The broker and SDK use the same legacy top-level map representation.
+	raw, err := json.Marshal(page)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]any
+	if err = json.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func navigationOptions(args map[string]any) (NavigationOptions, error) {
+	opts := NavigationOptions{}
+	if raw, exists := args["view"]; exists {
+		var ok bool
+		if opts.View, ok = raw.(string); !ok {
+			return opts, ErrInvalid
 		}
-		coverage = "truncated"
 	}
-	result := map[string]any{"root": root, "nodes": ordered, "kinds": kinds, "hubs": hubs, "records": total, "coverage": coverage, "snapshot": snap.Commit}
-	for {
-		raw, err := json.Marshal(result)
-		if err != nil {
+	if opts.View != "" && opts.View != "adaptive" && opts.View != "tree" {
+		return opts, ErrInvalid
+	}
+	var err error
+	if opts.Depth, err = navigationInteger(args, "depth", 2, 1, 4); err != nil {
+		return opts, err
+	}
+	opts.BudgetBytes, err = navigationInteger(args, "budget_bytes", defaultMapBudget, 4096, 32768)
+	return opts, err
+}
+
+func navigationInteger(args map[string]any, key string, fallback, lower, upper int) (int, error) {
+	raw, exists := args[key]
+	if !exists {
+		return fallback, nil
+	}
+	var n int
+	switch value := raw.(type) {
+	case int:
+		n = value
+	case float64:
+		if value < float64(lower) || value > float64(upper) || value != math.Trunc(value) {
+			return 0, ErrInvalid
+		}
+		n = int(value)
+	case json.Number:
+		integer, err := value.Int64()
+		if err != nil || integer < int64(lower) || integer > int64(upper) {
+			return 0, ErrInvalid
+		}
+		n = int(integer)
+	default:
+		return 0, ErrInvalid
+	}
+	if n < lower || n > upper {
+		return 0, ErrInvalid
+	}
+	return n, nil
+}
+
+func (b *Broker) navigationAncestors(ctx context.Context, e *Execution, space, root string) ([]MapNode, error) {
+	anchors := []MapNode{}
+	for p := root; p != "/"; {
+		p = path.Dir(p)
+		if err := b.allow(ctx, e, space, p, "read"); err != nil {
+			if errors.Is(err, ErrDenied) {
+				continue
+			}
 			return nil, err
 		}
-		if len(raw) <= 12*1024 {
-			return result, nil
+		anchor := MapNode{Path: p, Title: path.Base(p), Kinds: map[string]int{}, EntryType: "branch", Actions: []string{"map"}}
+		rec, rev, err := b.resolve(ctx, e, space, p, "")
+		if err == nil {
+			card := navigationCard(rec, rev)
+			anchor.ID, anchor.Revision, anchor.Kind, anchor.Title, anchor.TextTruncated = card.ID, card.Revision, card.Kind, card.Title, card.TextTruncated
+			anchor.EntryType = "document_branch"
+			anchor.Actions = []string{"map", "outline", "read"}
+		} else if !errors.Is(err, ErrNotFound) {
+			if errors.Is(err, ErrDenied) {
+				continue
+			}
+			return nil, err
 		}
-		result["coverage"] = "truncated"
-		if len(ordered) > 0 {
-			ordered = ordered[:len(ordered)-1]
-			result["nodes"] = ordered
-			continue
-		}
-		if len(hubs) > 0 {
-			hubs = hubs[:len(hubs)-1]
-			result["hubs"] = hubs
-			continue
-		}
-		return nil, errors.New("map metadata exceeds response budget")
+		anchors = append(anchors, anchor)
 	}
+	return anchors, nil
 }
