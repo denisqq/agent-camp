@@ -163,5 +163,7 @@ advance denied-only windows without exposing their raw boundaries.
 Snapshot handoff and agent quality evaluation (remaining Tasks 4–5) remain
 unimplemented. No exhaustive map coverage or completion of this
 entire plan is claimed. Follow map cursors until empty; folded branches remain
-explicit direct-map routes and `ls` remains available as a paginated catalog. PR #4 covers descriptive cards and client-wide bootstrap. The adaptive view is
-a subsequent change; the remaining navigation tasks stay explicitly pending.
+explicit direct-map routes and `ls` remains available as a paginated catalog.
+PR #4 contains client-wide bootstrap, descriptive cards, adaptive views and
+protected continuation. All subsequent work for this plan continues in PR #4
+on `codex/client-wide-startup-navigation`; Tasks 4–5 remain explicitly pending.
