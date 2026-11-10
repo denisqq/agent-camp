@@ -169,6 +169,10 @@ scan/output completeness flags explain partial results. Follow `cursor` with
 the same parameters until empty to continue the map within its original
 snapshot, then expand the branches you need. Space discovery is paginated too.
 Cursors expire after 30 minutes; current access changes may require a fresh map.
+To carry a primary space map into a new session, pass its `snapshot` as
+`start(primary_space=id, expected_snapshot=page.snapshot)`. If that snapshot has
+changed, Camp returns a conflict without creating a session: remap and retry.
+Then inspect document outlines and read the needed line ranges through `run`.
 [Explore the document model →](docs/MODEL.md)
 
 ## Run it your way

@@ -104,14 +104,14 @@ Implementation is in progress. The following defaults resolve open implementatio
 
 **Files:** Modify `map.go`, `sessions.go`, `documents.go`, `runner/camp_runner.py`, `api/mcp.go`, `api/http.go`; extend `map_test.go`, `sessions_test.go`, `api/http_test.go`, `api/stack_test.go`, `api/guide_test.go`, `runner/runner_test.go`; update README and MODEL.
 
-**Interfaces:** Extend Python `map(self, path="/", depth=2, space="", *, view="adaptive", cursor="", budget_bytes=12288)` without changing existing positional meanings. Add `ExpectedSnapshot string` with JSON `expected_snapshot,omitempty` to `StartRequest`. HTTP map query parsing and MCP input schema expose the same validated parameters.
+**Interfaces:** Extend Python `map(self, path="/", depth=2, space="", *, view="adaptive", cursor="", budget_bytes=12288)` without changing existing positional meanings. Add `ExpectedSnapshot string` with JSON `expected_snapshot,omitempty` to `StartRequest`. MCP map and SDK share validated options; HTTP and MCP start share the snapshot precondition. There is no separate HTTP map route; adding one is outside this implementation slice.
 
-- [ ] Add transport parity tests: omitted defaults, explicit tree view, bad numbers, cursor continuation, space discovery and permission denial have matching behavior through broker, HTTP and MCP. Confirm legacy SDK positional examples still run.
-- [ ] Add `TestStartExpectedSnapshot`: matching commit succeeds; mismatched commit saves no session; omission retains current behavior; resume plus expected snapshot is rejected as an invalid combination rather than ignored.
-- [ ] Run targeted tests to confirm missing behavior; then wire the shared implementation, Python wrapper, schema descriptions, and `SDKHelp`.
-- [ ] Update `start.help` examples to use map cards → existing outline → bounded read, and explain remapping after a handoff conflict. Keep the three MCP tools; do not add one tool for each disclosure level.
-- [ ] Run real Monty tests using `CAMP_TEST_PYTHON="$PWD/runner/.venv/bin/python" go test -count=1 ./camp-server/runner ./camp-server/api`; skipped runtime tests do not count as validation.
-- [ ] Run the full check chain, Docker build, and live SDK smoke before committing `feat: expose progressive navigation across Camp transports`.
+- [x] Existing map parity coverage from Tasks 2–3 checks omitted defaults, explicit tree view, invalid depth/path, cursor continuation, discovery and permission denial through broker/MCP and real SDK, including legacy positional arguments. Add HTTP/MCP parity for the new start precondition.
+- [x] Add `TestStartExpectedSnapshot`: matching commit succeeds; mismatched commit saves no session; omission retains current behavior; resume plus expected snapshot is rejected as an invalid combination rather than ignored.
+- [x] Run targeted tests to confirm missing behavior; then wire the shared implementation and schema descriptions. Python map options and SDKHelp were delivered in Tasks 2–3; start is a transport operation, not an SDK callback.
+- [x] Update `start.help` examples to use map cards → existing outline → bounded read, and explain remapping after a handoff conflict. Keep the three MCP tools; do not add one tool for each disclosure level.
+- [x] Run real Monty tests using `CAMP_TEST_PYTHON="$PWD/runner/.venv/bin/python" go test -count=1 ./camp-server/runner ./camp-server/api`; skipped runtime tests do not count as validation.
+- [x] Run the full check chain and live SDK smoke before committing `feat: guard map to session snapshot handoff`. Docker rebuild is required when runner or Docker inputs change; this increment changes neither.
 
 ## Task 5: Navigation quality and release evidence
 
@@ -160,10 +160,12 @@ ciphertexts participate in response budgeting; a long next-window boundary may
 require an empty transition page. Discovery continues a live registry and can
 advance denied-only windows without exposing their raw boundaries.
 
-Snapshot handoff and agent quality evaluation (remaining Tasks 4–5) remain
-unimplemented. No exhaustive map coverage or completion of this
+Task 4's primary snapshot handoff is implemented through the shared StartRequest
+and Sessions.Start path. Mismatches create no session; resume rejects the
+precondition. HTTP/MCP parity and real Monty examples cover the resulting flow.
+Task 5's agent quality evaluation remains pending. No completion of this
 entire plan is claimed. Follow map cursors until empty; folded branches remain
 explicit direct-map routes and `ls` remains available as a paginated catalog.
 PR #4 contains client-wide bootstrap, descriptive cards, adaptive views and
 protected continuation. All subsequent work for this plan continues in PR #4
-on `codex/client-wide-startup-navigation`; Tasks 4–5 remain explicitly pending.
+on `codex/client-wide-startup-navigation`; agent quality evaluation remains pending.

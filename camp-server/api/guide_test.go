@@ -81,7 +81,7 @@ camp.write("/rules/export", "# Export rules\nUse JSON for exports.", kind="const
 	if overview["coverage"] != "complete" {
 		t.Fatalf("unexpected map coverage: %v", overview)
 	}
-	session, err = sessions.Start(ctx, admin, camp.StartRequest{Space: "team"})
+	session, err = sessions.Start(ctx, admin, camp.StartRequest{Space: "team", ExpectedSnapshot: overview["snapshot"].(string)})
 	if err != nil {
 		t.Fatal(err)
 	}

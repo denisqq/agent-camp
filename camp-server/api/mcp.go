@@ -20,7 +20,7 @@ func (a *API) mcpServer() *mcp.Server {
 		out, err := a.Sessions.Broker.Map(ctx, p, in)
 		return nil, out, err
 	})
-	mcp.AddTool(server, &mcp.Tool{Name: "start", Description: "Start a Agent Camp session in an authorized primary space. If its id is unknown, first call map() without arguments; do not ask the user to supply an internal id. Returns a small SDK guide; use help(topic) for details."}, func(ctx context.Context, req *mcp.CallToolRequest, in camp.StartRequest) (*mcp.CallToolResult, camp.SessionView, error) {
+	mcp.AddTool(server, &mcp.Tool{Name: "start", Description: "Start an Agent Camp session in an authorized primary space. If its id is unknown, first call map() without arguments. Map that space, then pass its snapshot as expected_snapshot to require the same primary snapshot. A conflict creates no session: map the space again, reconsider the cards, and retry with the new snapshot. Omission selects the current snapshot. expected_snapshot cannot be combined with session_id; resume retains the existing snapshot. Returns an SDK guide for map cards, outlines and bounded reads; use help(topic) for details."}, func(ctx context.Context, req *mcp.CallToolRequest, in camp.StartRequest) (*mcp.CallToolResult, camp.SessionView, error) {
 		p, err := a.mcpPrincipal(req)
 		if err != nil {
 			return nil, camp.SessionView{}, err

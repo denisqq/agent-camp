@@ -2,10 +2,87 @@ package camp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 )
+
+func TestStartExpectedSnapshot(t *testing.T) {
+	ctx, b, p, _ := setupBroker(t)
+	svc := NewSessions(b, &testExecutor{})
+	state := NewMemState()
+	svc.State = state
+	page, err := b.Map(ctx, p, MapRequest{Space: "alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapped := page["snapshot"].(string)
+	start := func(snapshot, sessionID string) (SessionView, error) {
+		t.Helper()
+		// Decode the public wire contract so this test also catches a lost JSON field.
+		raw, _ := json.Marshal(map[string]string{"primary_space": "alice", "expected_snapshot": snapshot, "session_id": sessionID})
+		var req StartRequest
+		if err := json.Unmarshal(raw, &req); err != nil {
+			t.Fatal(err)
+		}
+		return svc.Start(ctx, p, req)
+	}
+	matched, err := start(mapped, "")
+	if err != nil || matched.Snapshot != mapped || matched.ID == "" {
+		t.Fatalf("matching snapshot: %+v %v", matched, err)
+	}
+	writer, err := b.Begin(ctx, p, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = b.Call(ctx, writer, "write", map[string]any{"path": "/new", "content": "new head"}); err != nil {
+		t.Fatal(err)
+	}
+	advanced, err := b.Finish(ctx, writer, "advance", Receipt{})
+	if err != nil || advanced.Commit == mapped {
+		t.Fatalf("advance: %+v %v", advanced, err)
+	}
+	for _, snapshot := range []string{mapped, "unknown-snapshot"} {
+		before := len(state.sessions)
+		view, err := start(snapshot, "")
+		if !errors.Is(err, ErrConflict) || view.ID != "" || len(state.sessions) != before {
+			t.Errorf("stale snapshot saved a session: %+v %v count=%d want=%d", view, err, len(state.sessions), before)
+		}
+	}
+	fresh, err := start(advanced.Commit, "")
+	if err != nil || fresh.Snapshot != advanced.Commit {
+		t.Fatalf("fresh handoff: %+v %v", fresh, err)
+	}
+	current, err := svc.Start(ctx, p, StartRequest{Space: "alice"})
+	if err != nil || current.Snapshot != advanced.Commit {
+		t.Fatalf("omitted precondition: %+v %v", current, err)
+	}
+	for _, snapshot := range []string{mapped, advanced.Commit} {
+		before := len(state.sessions)
+		if _, err := start(snapshot, matched.ID); !errors.Is(err, ErrInvalid) {
+			t.Errorf("resume with precondition: %v", err)
+		}
+		if len(state.sessions) != before {
+			t.Fatal("invalid resume created session")
+		}
+	}
+	resumed, err := svc.Start(ctx, p, StartRequest{SessionID: matched.ID})
+	if err != nil || resumed.ID != matched.ID || resumed.Snapshot != mapped {
+		t.Fatalf("resume must retain original snapshot after HEAD advance: %+v %v", resumed, err)
+	}
+	foreign, err := b.Store.Load(ctx, "bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(state.sessions)
+	if _, err := svc.Start(ctx, p, StartRequest{Space: "bob", ExpectedSnapshot: foreign.Commit}); !errors.Is(err, ErrDenied) {
+		t.Fatalf("snapshot must not grant access: %v", err)
+	}
+	if len(state.sessions) != before {
+		t.Fatal("denied handoff saved a session")
+	}
+}
 
 type testExecutor struct{ calls int }
 

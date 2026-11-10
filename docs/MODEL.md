@@ -194,8 +194,34 @@ change alters page membership, preventing offset shifts from silently skipping
 sources. Authorized moves follow existing immutable-snapshot reads. The SDK
 requires the cursor's snapshot to equal the session's selected snapshot, and
 rejects continuation with staged changes; `refresh` invalidates older cursors
-when it changes that snapshot. `start` does not yet offer an atomic map-snapshot
-handoff precondition.
+when it changes that snapshot.
+
+### Map to session handoff
+
+For a new session, pass the primary space map's `snapshot` into
+`start(primary_space=id, expected_snapshot=page.snapshot)`. Camp compares this
+value with the primary snapshot selected by `start` before saving the session.
+If they differ, it returns `ErrConflict` (HTTP 409) and saves no session. Map the
+primary space again, reconsider the cards, and retry with the new snapshot.
+Camp does not automatically open a historical snapshot from the supplied value.
+
+Omitting `expected_snapshot` preserves the existing behavior: select the current
+primary snapshot. A successful handoff pins that selected snapshot even if HEAD
+advances afterward; normal current-access checks still apply. This precondition
+covers only the primary space, not maps of other spaces, and does not change
+commit/rebase rules. Combining a nonempty `expected_snapshot` with `session_id`
+is `ErrInvalid` (HTTP 400); resume retains the existing session snapshot.
+
+Both MCP `start` and HTTP `POST /v1/sessions/start` accept the optional field:
+
+```json
+{"primary_space":"workspace","expected_snapshot":"<snapshot from map(space=workspace)>"}
+```
+
+The returned guide shows the next disclosure steps: inspect map cards, select a
+document, call `outline(path)`, then `read(path, start_line=..., limit=...)`.
+
+### Space discovery
 
 The sessionless MCP discovery tool uses `map(cursor=...)` without
 space/path/depth/view/budget parameters; SDK `camp.map` continues navigating a

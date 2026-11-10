@@ -122,11 +122,16 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 		t.Fatalf("discovery: %+v", discovered)
 	}
 	var entry camp.SessionView
-	call("start", map[string]any{"primary_space": discovered.Spaces[1].ID}, &entry)
+	var entryMap map[string]any
+	call("map", map[string]any{"space": discovered.Spaces[1].ID}, &entryMap)
+	call("start", map[string]any{"primary_space": discovered.Spaces[1].ID, "expected_snapshot": entryMap["snapshot"]}, &entry)
+	if entry.Snapshot != entryMap["snapshot"] {
+		t.Fatal("map-to-start snapshot changed")
+	}
 	examples := entry.Help["examples"].(map[string]any)
-	for _, name := range []string{"catalog", "rules", "read", "help"} {
+	for _, name := range []string{"map", "catalog", "rules", "outline", "read", "help"} {
 		var result camp.Receipt
-		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": strings.ReplaceAll(examples[name].(string), "/path/from/catalog", "/skills/review")}, &result)
+		call("run", map[string]any{"session_id": entry.ID, "operation_id": "entry-" + name, "code": strings.ReplaceAll(examples[name].(string), "/path/from/map", "/skills/review")}, &result)
 		if result.Status != "no_changes" {
 			t.Fatalf("entry example %s: %+v", name, result)
 		}

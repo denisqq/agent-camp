@@ -1,7 +1,7 @@
 # Progressive disclosure: adaptive view checkpoint
 
-Status: Tasks 2–3 implementation evidence, not an agent navigation quality study.
-Snapshot handoff is still pending. No model-based document
+Status: Tasks 2–4 implementation evidence, not an agent navigation quality study.
+Snapshot handoff is implemented. No model-based document
 selection trials have been run, so recall, wrong-branch visits and task quality
 are unmeasured. This checkpoint does not claim the overall quality gate passed.
 
@@ -84,3 +84,22 @@ and vet. The final camp package took 23.7 seconds normally and 248.9 seconds und
 the race detector after fixture consolidation. The final Docker image and
 freshly rebuilt packaged-install/MCP write smoke also passed. These timings are
 local test-suite observations, not navigation latency or model-quality benchmarks.
+
+## Snapshot handoff checkpoint
+
+`TestStartExpectedSnapshot` exercises a matching map snapshot, HEAD advancing
+between map and start, unknown snapshots, remapping, omission, and session
+resume. Mismatches return `ErrConflict` without saving a session; combining a
+precondition with resume returns `ErrInvalid`. Existing sessions keep their
+original snapshot after HEAD advances. The HTTP/MCP test exercises the same
+map → start → conflict → remap → start sequence through both transports. The
+real Monty stack executes the returned map, outline and bounded-read examples.
+
+Final handoff validation passed: build, full real-Monty tests, full race suite
+and vet (camp package: 19.4 seconds normally, 241.2 seconds with race detection).
+A fresh binary smoke passed init → token → serve → MCP map → guarded start →
+SDK write → stale-start conflict → remap → start → outline/read, using a
+disposable store and SQLite control database. No runner or Docker inputs changed
+in this increment. Independent review found no blocking issues; a minor test
+gap remains: MCP failures assert `IsError`, while distinct conflict/invalid
+contracts are checked by broker error sentinels and HTTP status codes.
