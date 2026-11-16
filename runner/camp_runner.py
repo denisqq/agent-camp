@@ -58,8 +58,8 @@ class Camp:
     def find(self, path="/", kind="", metadata=None, cursor="", limit=50, space=""):
         return self._call("find", dict(path=path, kind=kind, metadata=metadata or {}, cursor=cursor, limit=limit, space=space))
 
-    def read(self, path, start_line=1, limit=200, revision="", space=""):
-        return self._call("read", dict(path=path, start_line=start_line, limit=limit, revision=revision, space=space))
+    def read(self, path, start_line=1, limit=200, revision="", space="", *, line_offset=0):
+        return self._call("read", dict(path=path, start_line=start_line, limit=limit, revision=revision, space=space, line_offset=line_offset))
 
     def stat(self, path, space=""):
         return self._call("stat", dict(path=path, space=space))

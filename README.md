@@ -160,7 +160,11 @@ camp.comment('/plans/migration', 'Please review the rollout approach.', to='revi
 ```
 
 Those writes commit together. If the run fails, its staged changes are discarded.
-Agents can inspect document titles, descriptions and status in the map, then use
+Space maps identify applicable `ABOUT.md`, `RULES.md`, and `WORKFLOW.md`
+documents from the root to the requested branch in a `guidance` block. Follow
+the cursor and collect guidance items until `guidance.complete` is true; read
+the documents before dependent work. Agents can inspect document titles,
+descriptions and status in the map, then use
 outlines, bounded reads, metadata queries, full-text search, and backlinks to find
 relevant context. The default adaptive map expands small branches and skips empty
 directory chains within a fixed response budget. Use `view="tree"` for a
@@ -173,6 +177,8 @@ To carry a primary space map into a new session, pass its `snapshot` as
 `start(primary_space=id, expected_snapshot=page.snapshot)`. If that snapshot has
 changed, Camp returns a conflict without creating a session: remap and retry.
 Then inspect document outlines and read the needed line ranges through `run`.
+For a truncated read, continue using `next_line` and `next_offset`; the
+`next_separator` field preserves text when joining chunks.
 [Explore the document model →](docs/MODEL.md)
 
 ## Run it your way

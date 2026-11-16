@@ -19,6 +19,7 @@ type NavigationHub struct {
 // The renderer neither reads sources nor infers prose about their contents.
 type NavigationInput struct {
 	Root, Snapshot string
+	Guidance       MapGuidance
 	Cards          []MapNode
 	Ancestors      []MapNode
 	Hubs           []NavigationHub
@@ -31,6 +32,7 @@ type NavigationOptions struct {
 	CursorForOffset            func(offset int, complete bool) (string, error)
 }
 type NavigationPage struct {
+	Guidance       MapGuidance     `json:"guidance"`
 	Root           string          `json:"root"`
 	Snapshot       string          `json:"snapshot"`
 	View           string          `json:"view"`
@@ -65,7 +67,7 @@ func renderNavigation(input NavigationInput, opts NavigationOptions) (Navigation
 	}
 	branches := navigationTree(input, opts.Depth, opts.BudgetBytes/8)
 	focus := branches[input.Root].card
-	page := NavigationPage{Root: input.Root, Snapshot: input.Snapshot, View: opts.View, Location: focus, Ancestors: []MapNode{}, Nodes: []MapNode{}, Kinds: focus.Kinds, KindsTruncated: focus.KindsTruncated, Hubs: []NavigationHub{}, Records: len(input.Cards), Coverage: "truncated", ScanComplete: input.ScanComplete, CountsScope: "scan_window", IndexState: "authoritative"}
+	page := NavigationPage{Guidance: input.Guidance, Root: input.Root, Snapshot: input.Snapshot, View: opts.View, Location: focus, Ancestors: []MapNode{}, Nodes: []MapNode{}, Kinds: focus.Kinds, KindsTruncated: focus.KindsTruncated, Hubs: []NavigationHub{}, Records: len(input.Cards), Coverage: "truncated", ScanComplete: input.ScanComplete, CountsScope: "scan_window", IndexState: "authoritative"}
 	// Use exact ciphertext envelopes for the largest position in this window
 	// and for the next scan boundary. This keeps structural expansion independent
 	// of the current output offset while leaving room for every actual cursor.

@@ -90,6 +90,13 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 			t.Fatal(err)
 		}
 	}
+	metadataItems := make([]any, 4500)
+	for i := range metadataItems {
+		metadataItems[i] = 0
+	}
+	if _, err := b.Call(ctx, seed, "write", map[string]any{"path": "/rules/metadata", "content": "available", "metadata": map[string]any{"items": metadataItems}}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := b.Finish(ctx, seed, "seed", camp.Receipt{}); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +146,7 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	var overview map[string]any
 	began := time.Now()
 	call("map", map[string]any{"space": "shared", "depth": 2}, &overview)
-	if overview["coverage"] != "complete" || overview["records"] != float64(4) {
+	if overview["coverage"] != "complete" || overview["records"] != float64(5) {
 		t.Fatalf("seeded root map incomplete: %+v", overview)
 	}
 	t.Logf("MCP root map: %s", time.Since(began))
@@ -184,6 +191,17 @@ func testMontyMCPStack(t *testing.T, objects objectstore.Store, python string) {
 	payload, _ := json.Marshal(rules.Result)
 	if rules.Status != "no_changes" || !strings.Contains(string(payload), "Read existing documents") {
 		t.Fatal("MCP rules read", rules)
+	}
+	var largeMetadata camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "read-metadata", "code": "from camp_sdk import camp\ncamp.read('/rules/metadata', space='shared')"}, &largeMetadata)
+	if largeMetadata.Status != "no_changes" {
+		t.Fatalf("SDK read metadata: %+v", largeMetadata)
+	}
+	var partial camp.Receipt
+	call("run", map[string]any{"session_id": start.ID, "operation_id": "read-offset", "code": "from camp_sdk import camp\ncamp.read('/rules/workspace', space='shared', line_offset=5)"}, &partial)
+	partialPayload, _ := json.Marshal(partial.Result)
+	if partial.Status != "no_changes" || !strings.Contains(string(partialPayload), "existing documents") {
+		t.Fatalf("SDK read offset: %+v", partial)
 	}
 	var parallel camp.SessionView
 	call("start", map[string]any{"primary_space": "alice"}, &parallel)
