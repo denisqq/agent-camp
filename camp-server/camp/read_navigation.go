@@ -102,6 +102,10 @@ func documentHeadings(content string) ([]map[string]any, bool) {
 			}
 			if count >= 3 {
 				if fence == 0 {
+					// A backtick fence's info string cannot contain backticks.
+					if marker == '`' && strings.ContainsRune(text[count:], '`') {
+						continue
+					}
 					fence = marker
 					width = count
 					continue

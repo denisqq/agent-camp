@@ -70,6 +70,27 @@ func TestOutlineSkipsFencedCode(t *testing.T) {
 	}
 }
 
+func TestOutlineKeepsHeadingsAfterInlineBackticks(t *testing.T) {
+	ctx, b, p, _ := setupBroker(t)
+	e, err := b.Begin(ctx, p, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := "# Before\n```inline```\n## After\n```go\n# Hidden\n```\n### Final"
+	if _, err = b.Call(ctx, e, "write", map[string]any{"path": "/doc", "content": content}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := b.Call(ctx, e, "outline", map[string]any{"path": "/doc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outline := result.(map[string]any)
+	headings := outline["headings"].([]map[string]any)
+	if len(headings) != 3 || headings[0]["line"] != 1 || headings[1]["line"] != 3 || headings[2]["line"] != 7 || outline["truncated"] != false {
+		t.Fatalf("wrong outline after inline code: %#v", outline)
+	}
+}
+
 func TestReadRejectsOffsetInsideUTF8AndBeyondLine(t *testing.T) {
 	ctx, b, p, _ := setupBroker(t)
 	e, _ := b.Begin(ctx, p, "alice")
