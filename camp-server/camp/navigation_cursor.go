@@ -18,6 +18,8 @@ var invalidMapCursor = fmt.Errorf("%w: invalid map cursor; restart map without c
 
 type MapCursor struct {
 	Version      int    `json:"v"`
+	Phase        string `json:"phase,omitempty"`
+	GuidancePos  int    `json:"guidance_pos,omitempty"`
 	TokenHash    string `json:"token"`
 	Subject      string `json:"subject"`
 	Space        string `json:"space,omitempty"`
