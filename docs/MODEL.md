@@ -106,6 +106,22 @@ One changeset per successful run, in one space — like a commit, but authored
 by a program. Many agents coexist in one team space as long as they touch
 disjoint documents; contention is per document, not per space.
 
+## Scoped guidance
+
+Space maps expose a `guidance` block for the requested path. The exact names
+`ABOUT.md` (orientation), `RULES.md` (rules), and `WORKFLOW.md` (workflow)
+are ordinary documents scoped to their containing branch and descendants.
+Candidates are checked root to requested path, in that name order. The map
+returns readable cards with paths, roles, scope, record and revision; read the
+bodies separately. No other filename is treated specially.
+
+Collect `guidance.items` over cursor pages until `guidance.complete` is true.
+Completeness covers the traversal so far, not the current page alone, and does
+not imply that an agent has read the files. Guidance pages may have no nodes;
+follow the cursor even on empty pages. Inaccessible documents are not exposed.
+Each map uses its snapshot and checks current access. Root maps cover root
+instructions; map the target branch to discover its local guidance.
+
 ## Navigation cards
 
 `map(space=...)` profiles the accessible path tree. Its default `view="adaptive"`
@@ -161,6 +177,21 @@ justify chain compression or automatic branch expansion; documents retain an
 expand action because unseen descendants may exist.
 
 Document contents remain available through `outline` and bounded `read`.
+`outline` excludes headings inside fenced code blocks. A read returns its
+`start_line`, UTF-8 byte `line_offset`, `end_line`, and `truncated` flag. If
+truncated, `next_line` and `next_offset` identify the next request; concatenate
+`next_separator` between chunks to reconstruct the original text, and inspect
+`truncation_reason` (`line_limit` or `byte_limit`). When complete, next positions
+are zero and the separator/reason are empty. Use the same snapshot and revision
+for continuation. Each standalone read result is limited to 14 KiB of serialized
+JSON, leaving room under the 16 KiB `run` result limit; several reads, extra output,
+or large stdout still share that limit. If record metadata alone exceeds the read
+budget, read returns an explicit error.
+
+For full-file export, authenticated HTTP `GET /v1/files/download?space=...&path=...`
+streams the current document or attachment. SDK `camp.files.read_chunk` provides
+bytes for processing inside the runner; it does not save a local file on the
+agent host. Downloads use current authorization and are not session-pinned reads.
 
 ### Map continuation
 

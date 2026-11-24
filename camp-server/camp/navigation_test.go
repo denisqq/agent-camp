@@ -22,6 +22,30 @@ func (s *navigationHeadCounter) Get(ctx context.Context, key string) ([]byte, st
 	return s.Store.Get(ctx, key)
 }
 
+func mapPastGuidance(t *testing.T, ctx context.Context, b *Broker, p Principal, req MapRequest, counter *navigationHeadCounter) (map[string]any, error) {
+	t.Helper()
+	for i := 0; i < 1000; i++ {
+		counter.reads = 0
+		page, err := b.Map(ctx, p, req)
+		if err != nil {
+			return nil, err
+		}
+		if counter.reads > 32 {
+			t.Fatalf("page made %d HEAD reads", counter.reads)
+		}
+		if len(page["nodes"].([]any)) > 0 {
+			return page, nil
+		}
+		cursor, _ := page["cursor"].(string)
+		if cursor == "" {
+			return page, nil
+		}
+		req.Cursor = cursor
+	}
+	t.Fatal("map did not advance")
+	return nil, nil
+}
+
 func TestNavigationDeepAncestorsBoundStorageReads(t *testing.T) {
 	ctx, b, p, _ := setupBroker(t)
 	root := strings.Repeat("/a", 500)
@@ -37,7 +61,7 @@ func TestNavigationDeepAncestorsBoundStorageReads(t *testing.T) {
 	for _, budget := range []int{12288, 32768} {
 		counter := &navigationHeadCounter{Store: objects}
 		b.Store.Objects = counter
-		page, err := b.Map(ctx, p, MapRequest{Space: "alice", Path: root, BudgetBytes: &budget})
+		page, err := mapPastGuidance(t, ctx, b, p, MapRequest{Space: "alice", Path: root, BudgetBytes: &budget}, counter)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +101,7 @@ func TestNavigationDeniedAncestorsBoundStorageReads(t *testing.T) {
 	}
 	counter := &navigationHeadCounter{Store: b.Store.Objects}
 	b.Store.Objects = counter
-	page, err := b.Map(ctx, p, MapRequest{Space: "team", Path: root})
+	page, err := mapPastGuidance(t, ctx, b, p, MapRequest{Space: "team", Path: root}, counter)
 	if err != nil {
 		t.Fatal(err)
 	}

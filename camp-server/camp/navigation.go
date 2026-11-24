@@ -77,10 +77,30 @@ func (b *Broker) spaceMap(ctx context.Context, e *Execution, space string, a map
 	if err = b.allow(ctx, e, space, root, "read"); err != nil {
 		return nil, err
 	}
+	guidance := MapGuidance{AppliesTo: root, Items: []GuidanceItem{}, Complete: true}
+	if continuation.Phase != "nodes" {
+		page, next, err := b.guidancePage(ctx, e, space, root, opts, continuation)
+		if err != nil {
+			return nil, err
+		}
+		if next {
+			raw, err := json.Marshal(page)
+			if err != nil {
+				return nil, err
+			}
+			var result map[string]any
+			if err = json.Unmarshal(raw, &result); err != nil {
+				return nil, err
+			}
+			return result, nil
+		}
+		guidance = page.Guidance
+	}
 	input, windowEnd, err := b.collectNavigationWindow(ctx, e, snap, space, root, continuation.ScanStart, 3000)
 	if err != nil {
 		return nil, err
 	}
+	input.Guidance = guidance
 	if input.Ancestors, err = b.navigationAncestors(ctx, e, space, root, opts.BudgetBytes/4); err != nil {
 		return nil, err
 	}

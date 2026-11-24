@@ -399,34 +399,12 @@ func (b *Broker) Call(ctx context.Context, e *Execution, method string, a map[st
 	}
 	switch method {
 	case "read":
-		lines := strings.Split(rev.Content, "\n")
-		start := number(a, "start_line", 1)
-		limit := number(a, "limit", 200)
-		if start < 1 || limit < 1 || limit > 1000 {
-			return nil, ErrInvalid
-		}
-		end := min(len(lines), start-1+limit)
-		content := ""
-		if start <= len(lines) {
-			content = strings.Join(lines[start-1:end], "\n")
-		}
-		if len(content) > 65536 {
-			return nil, errors.New("read too large; request fewer lines or chunks")
-		}
-		return map[string]any{"record": rec, "revision": rev.ID, "content": content, "truncated": end < len(lines), "snapshot": e.Snapshots[space].Commit}, nil
+		return readDocument(rec, rev, e.Snapshots[space].Commit, number(a, "start_line", 1), number(a, "limit", 200), number(a, "line_offset", 0))
 	case "stat":
 		return rec, nil
 	case "outline":
-		headings := []map[string]any{}
-		for i, line := range strings.Split(rev.Content, "\n") {
-			if strings.HasPrefix(line, "#") {
-				headings = append(headings, map[string]any{"line": i + 1, "heading": line})
-				if len(headings) == 200 {
-					break
-				}
-			}
-		}
-		return map[string]any{"headings": headings, "revision": rev.ID, "truncated": len(headings) == 200}, nil
+		headings, truncated := documentHeadings(rev.Content)
+		return map[string]any{"headings": headings, "revision": rev.ID, "truncated": truncated}, nil
 	case "history":
 		return b.history(ctx, e, space, rev, number(a, "limit", 20))
 	case "diff":
