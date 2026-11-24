@@ -16,23 +16,21 @@ func readDocument(rec Record, rev Revision, snapshot string, start, limit, offse
 	if start < 1 || limit < 1 || limit > 1000 || offset < 0 {
 		return nil, ErrInvalid
 	}
+	// An out-of-range start returns the same empty response as an exhausted read.
+	selected := ""
+	end := len(lines)
 	if start > len(lines) {
 		if offset != 0 {
 			return nil, ErrInvalid
 		}
-		result := map[string]any{"record": rec, "revision": rev.ID, "content": "", "truncated": false, "snapshot": snapshot, "start_line": start, "line_offset": 0, "end_line": start, "next_line": 0, "next_offset": 0, "next_separator": "", "truncation_reason": ""}
-		raw, err := json.Marshal(RunOutput{Value: result})
-		if err != nil || runnerJSONSize(raw) > readResultBudget {
-			return nil, fmt.Errorf("%w: read metadata exceeds result budget", ErrInvalid)
+	} else {
+		first := lines[start-1]
+		if offset > len(first) || (offset < len(first) && !utf8.RuneStart(first[offset])) {
+			return nil, ErrInvalid
 		}
-		return result, nil
+		end = min(len(lines), start-1+limit)
+		selected = strings.Join(lines[start-1:end], "\n")[offset:]
 	}
-	first := lines[start-1]
-	if offset > len(first) || (offset < len(first) && !utf8.RuneStart(first[offset])) {
-		return nil, ErrInvalid
-	}
-	end := min(len(lines), start-1+limit)
-	selected := strings.Join(lines[start-1:end], "\n")[offset:]
 	boundaries := []int{0}
 	for i := range selected {
 		if i > 0 {
@@ -61,7 +59,13 @@ func readDocument(rec Record, rev Revision, snapshot string, start, limit, offse
 			separator = "\n"
 			reason = "line_limit"
 		}
-		return map[string]any{"record": rec, "revision": rev.ID, "content": content, "truncated": truncated, "snapshot": snapshot, "start_line": start, "line_offset": offset, "end_line": lastLine, "next_line": nextLine, "next_offset": nextOffset, "next_separator": separator, "truncation_reason": reason}
+		return map[string]any{
+			"record": rec, "revision": rev.ID, "snapshot": snapshot,
+			"content": content, "truncated": truncated,
+			"start_line": start, "line_offset": offset, "end_line": lastLine,
+			"next_line": nextLine, "next_offset": nextOffset,
+			"next_separator": separator, "truncation_reason": reason,
+		}
 	}
 	fits := func(n int) bool {
 		raw, err := json.Marshal(RunOutput{Value: build(n)})

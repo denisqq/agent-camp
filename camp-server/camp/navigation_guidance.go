@@ -24,7 +24,7 @@ type MapGuidance struct {
 }
 
 // guidancePage advances by candidate positions, including absent and denied entries.
-func (b *Broker) guidancePage(ctx context.Context, e *Execution, space, root string, opts NavigationOptions, c MapCursor) (NavigationPage, bool, error) {
+func (b *Broker) guidancePage(ctx context.Context, e *Execution, space, root string, opts NavigationOptions, continuation MapCursor) (NavigationPage, bool, error) {
 	scopes := []string{root}
 	for p := root; p != "/"; {
 		p = path.Dir(p)
@@ -33,96 +33,108 @@ func (b *Broker) guidancePage(ctx context.Context, e *Execution, space, root str
 	for i, j := 0, len(scopes)-1; i < j; i, j = i+1, j-1 {
 		scopes[i], scopes[j] = scopes[j], scopes[i]
 	}
-	names := []string{"ABOUT.md", "RULES.md", "WORKFLOW.md"}
-	roles := []string{"orientation", "rules", "workflow"}
-	total := len(scopes) * len(names)
-	if c.GuidancePos < 0 || c.GuidancePos > total || (c.Phase != "" && c.Phase != "guidance") {
+	files := []struct{ name, role string }{
+		{"ABOUT.md", "orientation"},
+		{"RULES.md", "rules"},
+		{"WORKFLOW.md", "workflow"},
+	}
+	total := len(scopes) * len(files)
+	if continuation.GuidancePos < 0 || continuation.GuidancePos > total || (continuation.Phase != "" && continuation.Phase != "guidance") {
 		return NavigationPage{}, false, invalidMapCursor
 	}
-	pg := NavigationPage{Root: root, Snapshot: e.Snapshots[space].Commit, View: opts.View, Location: MapNode{Path: root, Kinds: map[string]int{}, EntryType: "branch", Actions: []string{"map"}}, Ancestors: []MapNode{}, Nodes: []MapNode{}, Kinds: map[string]int{}, Hubs: []NavigationHub{}, Coverage: "truncated", CountsScope: "scan_window", IndexState: "authoritative", Guidance: MapGuidance{AppliesTo: root, Items: []GuidanceItem{}}}
-	if root != "/" {
-		pg.UpPath = path.Dir(root)
+	page := NavigationPage{
+		Root: root, Snapshot: e.Snapshots[space].Commit, View: opts.View,
+		Location: MapNode{
+			Path: root, Kinds: map[string]int{},
+			EntryType: "branch", Actions: []string{"map"},
+		},
+		Ancestors: []MapNode{}, Nodes: []MapNode{},
+		Kinds: map[string]int{}, Hubs: []NavigationHub{},
+		Coverage: "truncated", CountsScope: "scan_window", IndexState: "authoritative",
+		Guidance: MapGuidance{AppliesTo: root, Items: []GuidanceItem{}},
 	}
-	pos := c.GuidancePos
+	if root != "/" {
+		page.UpPath = path.Dir(root)
+	}
+	position := continuation.GuidancePos
 	key, err := b.mapCursorKey()
 	if err != nil {
-		return pg, false, err
+		return page, false, err
 	}
 	setCursor := func(next int) error {
-		n := c
+		n := continuation
 		n.GuidancePos = next
 		n.Phase = "guidance"
 		if next == total {
 			n.Phase = "nodes"
 			n.GuidancePos = 0
 		}
-		pg.Cursor, err = sealMapCursor(key, n)
+		page.Cursor, err = sealMapCursor(key, n)
 		return err
 	}
 	// Reserve the largest cursor for this traversal before fitting cards. A
 	// continuation after omitted/denied candidates may be longer than the
 	// cursor immediately following the last visible card.
 	if err = setCursor(total - 1); err != nil {
-		return pg, false, err
+		return page, false, err
 	}
-	reservedCursor := pg.Cursor
+	reservedCursor := page.Cursor
 	if err = setCursor(total); err != nil {
-		return pg, false, err
+		return page, false, err
 	}
-	if len(pg.Cursor) > len(reservedCursor) {
-		reservedCursor = pg.Cursor
+	if len(page.Cursor) > len(reservedCursor) {
+		reservedCursor = page.Cursor
 	}
-	for inspected := 0; pos < total && inspected < 24; inspected++ {
-		scope := scopes[pos/3]
-		idx := pos % 3
-		rec, rev, err := b.resolve(ctx, e, space, path.Join(scope, names[idx]), "")
+	for inspected := 0; position < total && inspected < 24; inspected++ {
+		scope := scopes[position/len(files)]
+		file := files[position%len(files)]
+		rec, rev, err := b.resolve(ctx, e, space, path.Join(scope, file.name), "")
 		if err != nil && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrDenied) {
-			return pg, false, err
+			return page, false, err
 		}
 		if err == nil {
 			card := navigationCard(rec, rev)
-			item := GuidanceItem{Path: rec.Path, Scope: scope, Role: roles[idx], ID: rec.ID, Revision: rev.ID, Title: card.Title, Actions: []string{"read"}}
-			pg.Guidance.Items = append(pg.Guidance.Items, item)
-			pg.Cursor = reservedCursor
-			pg.Guidance.Complete = false
-			raw, _ := json.Marshal(pg)
+			item := GuidanceItem{Path: rec.Path, Scope: scope, Role: file.role, ID: rec.ID, Revision: rev.ID, Title: card.Title, Actions: []string{"read"}}
+			page.Guidance.Items = append(page.Guidance.Items, item)
+			page.Cursor = reservedCursor
+			page.Guidance.Complete = false
+			raw, _ := json.Marshal(page)
 			if len(raw) > opts.BudgetBytes {
-				pg.Guidance.Items[len(pg.Guidance.Items)-1].Title = ""
-				raw, _ = json.Marshal(pg)
-				if len(raw) > opts.BudgetBytes && len(pg.Guidance.Items) == 1 && pos+1 == total {
+				page.Guidance.Items[len(page.Guidance.Items)-1].Title = ""
+				raw, _ = json.Marshal(page)
+				if len(raw) > opts.BudgetBytes && len(page.Guidance.Items) == 1 && position+1 == total {
 					// The last card can use a shorter transition cursor than the
 					// conservative reservation for intermediate pages.
 					if err = setCursor(total); err != nil {
-						return pg, false, err
+						return page, false, err
 					}
-					pg.Guidance.Complete = true
-					raw, _ = json.Marshal(pg)
+					page.Guidance.Complete = true
+					raw, _ = json.Marshal(page)
 				}
 				if len(raw) > opts.BudgetBytes {
-					pg.Guidance.Items = pg.Guidance.Items[:len(pg.Guidance.Items)-1]
-					if len(pg.Guidance.Items) == 0 {
-						return pg, false, fmt.Errorf("%w: guidance card requires budget_bytes of at least %d", ErrInvalid, len(raw))
+					page.Guidance.Items = page.Guidance.Items[:len(page.Guidance.Items)-1]
+					if len(page.Guidance.Items) == 0 {
+						return page, false, fmt.Errorf("%w: guidance card requires budget_bytes of at least %d", ErrInvalid, len(raw))
 					}
 					break
 				}
 			}
 		}
-		pos++
+		position++
 	}
-	pg.Guidance.Complete = pos == total
-	if pos == total && len(pg.Guidance.Items) == 0 && c.GuidancePos == 0 {
-		pg.Guidance.Complete = true
-		return pg, false, nil
+	page.Guidance.Complete = position == total
+	if position == total && len(page.Guidance.Items) == 0 && continuation.GuidancePos == 0 {
+		return page, false, nil
 	}
-	if err = setCursor(pos); err != nil {
-		return pg, false, err
+	if err = setCursor(position); err != nil {
+		return page, false, err
 	}
-	raw, err := json.Marshal(pg)
+	raw, err := json.Marshal(page)
 	if err != nil {
-		return pg, false, err
+		return page, false, err
 	}
 	if len(raw) > opts.BudgetBytes {
-		return pg, false, fmt.Errorf("%w: guidance page requires budget_bytes of at least %d", ErrInvalid, len(raw))
+		return page, false, fmt.Errorf("%w: guidance page requires budget_bytes of at least %d", ErrInvalid, len(raw))
 	}
-	return pg, true, nil
+	return page, true, nil
 }
